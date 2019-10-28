@@ -1,0 +1,8 @@
+telebot
+requests
+bs4
+pytelegrambotapi
+pytz
+timedelta
+psycopg2
+openpyxl
