@@ -1,21 +1,31 @@
 # -*- coding: utf-8 -*-
 
-import re
+import logging
 from datetime import *
 from datetime import datetime
 
 import pytz
+import telebot
 from telebot import TeleBot
 
-import config
+import config as cfg
 import dbworker
 import keyboards as kb
 import xls_handler
 
-bot = TeleBot(config.token)
+bot = TeleBot(cfg.token)
+
+#logger = telebot.logger
+#telebot.logger.setLevel(logging.DEBUG)
+
+db = dbworker.Database(dbname=cfg.db_name,
+                       username=cfg.db_username,
+                       password=cfg.db_password,
+                       host=cfg.db_host)
 
 
 def get_time_to_lesson():
+    """Получаем время до пары."""
     now = datetime.now().astimezone(pytz.timezone('Asia/Bangkok'))
     current_time = str(now.hour) + ':' + str(now.minute)
 
@@ -75,335 +85,392 @@ def get_time_to_lesson():
     return message
 
 
-def get_course(message):
-    bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, text='*Выберите курс:*',
-                          reply_markup=kb.course_keyboard(message.chat.id), parse_mode='Markdown')
+def get_course(msg):
+    """Смена этапа на изменение курса."""
+    bot.edit_message_text(chat_id=msg.chat.id, message_id=msg.message_id, text='*Выберите курс:*',
+                          reply_markup=kb.course_keyboard(msg.chat.id),
+                          parse_mode='Markdown')
 
 
-def get_group(message):
-    bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, text='*Выберите группу:*',
-                          parse_mode='Markdown', reply_markup=kb.group_keyboard(message.chat.id))
-
-
-def set_email(message):
-    if not dbworker.user_exists(message.chat.id):
-        if re.match(r"\A[^@]+@([^@]+\.)+[^@]", message.text):
-            dbworker.change_mail(user_id=message.chat.id, mail=message.text)
-            bot.send_message(chat_id=message.chat.id,
-                             text='*Меню:*',
-                             reply_markup=kb.make_settings_keyboard_for_user(message.chat.id),
-                             parse_mode='Markdown')
-    else:
-        if re.match(r"\A[^@]+@([^@]+\.)+[^@]", message.text):
-            dbworker.change_mail(user_id=message.chat.id, mail=message.text)
-            bot.send_message(chat_id=message.chat.id,
-                             text='*Меню:*',
-                             reply_markup=kb.make_settings_keyboard_for_user(message.chat.id),
-                             parse_mode='Markdown')
-
-
-# def send_mail():
-#     # Основные параметры
-#     msg = MIMEMultipart()
-#     msg['Subject'] = 'Изменение расписания'
-#     msg['From'] = 'authfailed@gmail.com'
-
-# body = email.mime.text.MIMEText( get_edit_time() + "\nСкачать обновленное расписание можно <a
-# href=\"https://sibsutis.ru/students/study/webdav_bizproc_history_get/3062720/3062720/?ncc=1&force_download=1
-# \">здесь</a>", 'html') msg.attach(body)
-
-#     # Прикрепляем расписание
-#     filename = './new_shedule.doc'
-#     fp = open(filename, 'rb')
-#     att = email.mime.application.MIMEApplication(fp.read(), _subtype="doc")
-#     fp.close()
-#     att.add_header('Content-Disposition', 'attachment',
-#                    filename="Расписание.doc")
-#     msg.attach(att)
-
-#     # Соединяемся с сервером
-#     mail = smtplib.SMTP('smtp.gmail.com', 587)
-#     mail.ehlo()
-#     mail.starttls()
-#     mail.login(config.login, config.password)
-#     mail.sendmail("authfailed@gmail.con", [
-#                   'authfailed@gmail.com',
-#                   'lorarin97@mail.ru'], msg.as_string())
-#     print("Уведомления отправлены!")
+def get_group(msg):
+    """Смена этапа на изменение группы."""
+    bot.edit_message_text(chat_id=msg.chat.id, message_id=msg.message_id, text='*Выберите группу:*',
+                          reply_markup=kb.group_keyboard(msg.chat.id),
+                          parse_mode='Markdown')
 
 
 @bot.message_handler(commands=['start'])
-def start_message(message):
-    if dbworker.user_exists(user_id=message.chat.id):
-        bot.send_message(chat_id=message.chat.id,
+def start_message(msg):
+    """Стартовое сообщение."""
+    if db.user_exists(user_id=msg.chat.id):
+        bot.send_message(chat_id=msg.chat.id,
                          text='❗ Вы *уже зарегистрированы* в системе!\nЧтобы получить доступ к меню, используйте '
                               'команду */menu*',
-                         parse_mode='Markdown', reply_markup=kb.main_menu())
+                         reply_markup=kb.main_menu(),
+                         parse_mode='Markdown')
 
     else:
-        dbworker.get_person(message.chat.id)
-
-        bot.send_message(chat_id=message.chat.id,
-                         text='Приветствую, *' + message.from_user.first_name +
-                              '*. Выбери свою факультет:',
-                         parse_mode='Markdown', reply_markup=kb.faculty_menu())
+        db.get_person(msg.chat.id)
+        bot.reply_to(message=msg, text='Приветствую, *{}*. Выберите свою факультет:'.format(msg.from_user.first_name),
+                     reply_markup=kb.faculty_menu(),
+                     parse_mode='Markdown')
 
 
 @bot.message_handler(commands=['menu'])
-def send_message_main_menu(message):
-    if not dbworker.user_exists(message.from_user.id):
-        start_message(message)
+def send_message_main_menu(msg):
+    """Сообщение с основным меню."""
+    if not db.user_exists(msg.from_user.id):
+        start_message(msg)
     else:
-        bot.send_message(message.chat.id, '*Меню:*',
-                         parse_mode='Markdown', reply_markup=kb.main_menu())
+        bot.send_message(msg.chat.id, '*Меню:*',
+                         reply_markup=kb.main_menu(),
+                         parse_mode='Markdown')
 
 
 @bot.message_handler(commands=['iamadmin'])
-def i_am_admin(message):
-    is_admin = dbworker.get_info(
-        column='user_admin', user_id=message.chat.id)[0][0]
-    if message.chat.id in config.admins and is_admin is False:
-        dbworker.db.execute('UPDATE Users SET user_admin=True where user_id=%s' % message.chat.id)
-        bot.send_message(message.chat.id, 'Группа изменена!')
+def i_am_admin(msg):
+    """Установка прав администратора пользователю."""
+    is_admin = db.get_info(
+        column='user_admin', user_id=msg.chat.id)[0][0]
+    if msg.chat.id in cfg.admins and is_admin is False:
+        db.execute("UPDATE Users SET user_admin=True where user_id=%s" % msg.chat.id)
+        bot.send_message(msg.chat.id, 'Группа успешно изменена! Теперь у вас есть доступ к *Админ-Меню* в настройках.', parse_mode='Markdown')
     elif is_admin:
-        bot.send_message(message.chat.id, 'Вы уже администратор!')
+        bot.send_message(msg.chat.id, 'Вы уже администратор!', parse_mode='Markdown')
     else:
-        bot.send_message(message.chat.id, 'Вы не администратор!')
+        bot.send_message(msg.chat.id, 'Вы не администратор!', parse_mode='Markdown')
 
 
 @bot.message_handler(commands=['execute'])
-def execute_first(message):
-    is_admin = dbworker.get_info(
-        column='user_admin', user_id=message.chat.id)[0][0]
-    print(is_admin)
+def execute_first(msg):
+    """Первый этап запроса к базе данных."""
+    is_admin = db.get_info(
+        column='user_admin', user_id=msg.chat.id)[0][0]
     if is_admin:
         msg = bot.send_message(
-            message.chat.id, '*Введите запрос:*', parse_mode='Markdown')
-        bot.register_next_step_handler(msg, db_execute)
+            msg.chat.id, '*Введите запрос:*', parse_mode='Markdown')
     else:
-        bot.send_message(message.chat.id, 'Вы не администратор!')
+        bot.send_message(msg.chat.id, 'Вы не администратор!', parse_mode='Markdown')
 
 
-def db_execute(query):
+def db_execute(msg):
+    """Второй этап запроса к базе данных."""
     try:
-        bot.send_message(query.chat.id, dbworker.execute(query.text))
+        bot.send_message(msg.chat.id, db.execute(msg.text))
     except Exception as e:
         bot.send_message(
-            query.chat.id, 'Не удалось выполнить запрос.\n %s' % e)
+            msg.chat.id, 'Не удалось выполнить запрос.\n %s' % e, parse_mode='Markdown')
 
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callbacks(call):
-    if call.data == "to_settings":
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='*Настройки:*',
+    """Отлавливаем кэллбэки телеграма."""
+    if call.data == 'to_main_menu':
+        bot.answer_callback_query(call.id)
+        bot.edit_message_text(chat_id=call.from_user.id, message_id=call.message.message_id,
+                              text='*Меню:*',
+                              reply_markup=kb.main_menu(),
+                              parse_mode='Markdown')
+    elif call.data == "to_settings":
+        bot.answer_callback_query(call.id)
+        bot.edit_message_text(chat_id=call.from_user.id, message_id=call.message.message_id,
+                              text='*Настройки:*',
                               parse_mode='Markdown',
                               reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id))
-    elif call.data == "off_notifications":
-        dbworker.notification_status(call.from_user.id, status=False)
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='*Настройки:*',
-                              reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id),
-                              parse_mode='Markdown')
-    elif call.data == "on_notifications":
-        dbworker.notification_status(call.from_user.id, status=True)
-        bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                                      reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id))
     elif call.data == 'get_lesson_time':
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text=get_time_to_lesson(), parse_mode='Markdown', reply_markup=kb.lesson_time())
+        bot.answer_callback_query(call.id)
+        bot.edit_message_text(chat_id=call.from_user.id, message_id=call.message.message_id,
+                              text=get_time_to_lesson(), reply_markup=kb.lesson_time(),
+                              parse_mode='Markdown')
     elif call.data == 'open_settings_menu':
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='*Настройки:*',
+        bot.answer_callback_query(call.id)
+        bot.edit_message_text(chat_id=call.from_user.id, message_id=call.message.message_id,
+                              text='*Настройки:*',
                               reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id),
                               parse_mode='Markdown')
     elif call.data == 'choose_group':
+        bot.answer_callback_query(call.id)
         get_group(call.message)
-    elif call.data == 'to_main_menu':
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text='*Меню:*', parse_mode='Markdown', reply_markup=kb.main_menu())
-    elif call.data == 'edit_mail':
-        msg = bot.edit_message_text(
-            chat_id=call.message.chat.id, message_id=call.message.message_id, text='*Введите email:*',
-            parse_mode='Markdown')
-        bot.register_next_step_handler(msg, set_email)
     elif call.data == 'reload_time':
         if call.message.text != get_time_to_lesson().replace("*", "").replace("__", ""):
-            bot.edit_message_text(text=get_time_to_lesson(), chat_id=call.message.chat.id,
-                                  message_id=call.message.message_id, parse_mode='Markdown',
-                                  reply_markup=kb.lesson_time())
+            bot.edit_message_text(text=get_time_to_lesson(), chat_id=call.from_user.id,
+                                  message_id=call.message.message_id,
+                                  reply_markup=kb.lesson_time(),
+                                  parse_mode='Markdown')
         else:
             bot.answer_callback_query(call.id, text='Не нажимайте так часто!')
     elif call.data == 'change_faculty':
+        bot.answer_callback_query(call.id)
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text='*Выберите факультет:*', reply_markup=kb.faculty_menu(), parse_mode='Markdown')
+                              text='*Выберите факультет:*', reply_markup=kb.faculty_menu(),
+                              parse_mode='Markdown')
     elif call.data == 'change_course':
+        bot.answer_callback_query(call.id)
         get_course(call.message)
     elif call.data == 'MTS_faculty':
-        dbworker.change_faculty(call.message.chat.id, 'МТС')
+        db.change_faculty(call.from_user.id, faculty='МТС')
         bot.answer_callback_query(call.id, text='Факультет выбран.')
         get_course(call.message)
     elif call.data == 'MRM_faculty':
-        dbworker.change_faculty(call.message.chat.id, 'МРМ')
+        db.change_faculty(call.message.chat.id, faculty='МРМ')
         bot.answer_callback_query(call.id, text='Факультет выбран.')
         get_course(call.message)
     elif call.data == 'IVT_faculty':
-        dbworker.change_faculty(call.message.chat.id, 'ИВТ')
+        db.change_faculty(call.message.chat.id, faculty='ИВТ')
         bot.answer_callback_query(call.id, text='Факультет выбран.')
         get_course(call.message)
     elif call.data == 'GF_faculty':
-        dbworker.change_faculty(call.message.chat.id, 'ГФ')
+        db.change_faculty(call.message.chat.id, faculty='ГФ')
         bot.answer_callback_query(call.id, text='Факультет выбран.')
         get_course(call.message)
     elif call.data == 'AES_faculty':
-        dbworker.change_faculty(call.message.chat.id, 'АЭС')
+        db.change_faculty(call.message.chat.id, faculty='АЭС')
         bot.answer_callback_query(call.id, text='Факультет выбран.')
         get_course(call.message)
     elif call.data == 'set_1_course':
-        dbworker.change_course(user_id=call.message.chat.id, course='1')
+        db.change_course(user_id=call.message.chat.id, course='1')
         bot.answer_callback_query(call.id, text='Курс выбран.')
         get_group(call.message)
     elif call.data == 'set_2_course':
-        dbworker.change_course(user_id=call.message.chat.id, course='2')
+        db.change_course(user_id=call.message.chat.id, course='2')
         bot.answer_callback_query(call.id, text='Курс выбран.')
         get_group(call.message)
     elif call.data == 'set_3_course':
-        dbworker.change_course(user_id=call.message.chat.id, course='3')
+        db.change_course(user_id=call.message.chat.id, course='3')
         bot.answer_callback_query(call.id, text='Курс выбран.')
         get_group(call.message)
     elif call.data == 'set_4_course':
-        dbworker.change_course(user_id=call.message.chat.id, course='4')
+        db.change_course(user_id=call.message.chat.id, course='4')
         bot.answer_callback_query(call.id, text='Курс выбран.')
         get_group(call.message)
     elif call.data == 'set_5_course':
-        dbworker.change_course(user_id=call.message.chat.id, course='5')
+        db.change_course(user_id=call.message.chat.id, course='5')
         bot.answer_callback_query(call.id, text='Курс выбран.')
         get_group(call.message)
+
     elif call.data == 'set_6_course':
-        dbworker.change_course(user_id=call.message.chat.id, course='6')
+        db.change_course(user_id=call.message.chat.id, course='6')
         bot.answer_callback_query(call.id, text='Курс выбран.')
         get_group(call.message)
+    elif call.data == 'change_show_teacher_status_off':
+        bot.answer_callback_query(call.id)
+        db.change_show_teacher_status(user_id=call.message.chat.id, status=False)
+        bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                      inline_message_id=call.inline_message_id,
+                                      reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id))
+    elif call.data == 'change_show_teacher_status_on':
+        bot.answer_callback_query(call.id)
+        db.change_show_teacher_status(user_id=call.message.chat.id, status=True)
+        bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                      inline_message_id=call.inline_message_id,
+                                      reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id))
+    elif call.data == 'change_show_audience_status_on':
+        bot.answer_callback_query(call.id)
+        db.change_show_audience_status(user_id=call.message.chat.id, status=True)
+        bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                      inline_message_id=call.inline_message_id,
+                                      reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id))
+    elif call.data == 'change_show_audience_status_off':
+        bot.answer_callback_query(call.id)
+        db.change_show_audience_status(user_id=call.message.chat.id, status=False)
+        bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                      inline_message_id=call.inline_message_id,
+                                      reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id))
+
     elif call.data == 'delete_me':
+        bot.answer_callback_query(call.id)
         bot.edit_message_text(chat_id=call.message.chat.id,
                               message_id=call.message.message_id,
                               text='Вы уверены? *Аккаунт восстановлению не подлежит!*',
                               parse_mode='Markdown',
                               reply_markup=kb.delete_me_menu())
+
     elif call.data == 'delete_me_yes':
-        if dbworker.user_exists(call.message.chat.id):
+        bot.answer_callback_query(call.id)
+        if db.user_exists(call.message.chat.id):
             try:
-                dbworker.delete_person(call.message.chat.id)
+                db.delete_person(call.message.chat.id)
                 bot.edit_message_text(chat_id=call.message.chat.id,
                                       message_id=call.message.message_id,
                                       text='Аккаунт был *удален!*\nЧтобы заново зарегистрироваться используйте '
                                            'команду /start.',
                                       parse_mode='Markdown')
             except Exception as e:
-                bot.send_message(call.message.chat.id, 'Ошибка! \n %s' % e)
+                bot.send_message(call.message.chat.id, 'Ошибка! \n %s' % e, parse_mode='Markdown')
         else:
+            bot.answer_callback_query(call.id)
             bot.send_message(
-                call.message.chat.id, '*Вы не зарегистрированы!*\n qИспользуйте команду /start.')
+                call.message.chat.id, '*Вы не зарегистрированы!*\n qИспользуйте команду /start.', parse_mode='Markdown')
+
     elif call.data == 'delete_me_no':
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='*Настройки:*',
+        bot.answer_callback_query(call.id)
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                              text='*Настройки:*',
                               reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id),
                               parse_mode='Markdown')
+
     elif call.data == 'generate_admin_keyboard':
+        bot.answer_callback_query(call.id)
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text='*Админ-меню:*', parse_mode='Markdown', reply_markup=kb.admin_menu())
+                              text='*Админ-меню:*', reply_markup=kb.admin_menu(), parse_mode='Markdown')
+
     elif call.data == 'adminmenu_delete_string':
+        bot.answer_callback_query(call.id)
         msg = bot.edit_message_text(
             chat_id=call.message.chat.id, message_id=call.message.message_id, text='*Введите ключ:*',
             parse_mode='Markdown')
         try:
-            bot.register_next_step_handler(msg, dbworker.delete_person)
+            bot.register_next_step_handler(msg, db.delete_person)
             bot.send_message(chat_id=call.message.chat.id,
-                             text='Пользователь успешно удалён!')
+                             text='Пользователь успешно удалён!', parse_mode='Markdown')
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                                  text='*Админ-меню:*', parse_mode='Markdown', reply_markup=kb.admin_menu())
+                                  text='*Админ-меню:*', reply_markup=kb.admin_menu(), parse_mode='Markdown')
         except Exception as e:
             bot.send_message(chat_id=call.message.chat.id,
-                             text='Произошла непредвиденная ошибка!\nТекст ошибки: %s' % e)
-    elif call.data == 'adminmenu_delete_db':
+                             text='Произошла непредвиденная ошибка!\nТекст ошибки: %s' % e, parse_mode='Markdown')
+
+    elif call.data == 'adminmenu_truncate_table':
+        bot.answer_callback_query(call.id)
         try:
-            dbworker.delete_db()
+            db.truncate_table()
             bot.send_message(chat_id=call.message.chat.id,
-                             text='База успешно удалена. Перезагрузите бота для повторного создания базы.')
+                             text='База успешно очищена.',
+                             parse_mode='Markdown')
         except Exception as e:
             bot.send_message(chat_id=call.message.chat.id,
-                             text='Произошла непредвиденная ошибка!\nТекст ошибки: %s' % e)
+                             text='Произошла непредвиденная ошибка!\nТекст ошибки: %s' % e, parse_mode='Markdown')
+
     elif call.data == 'adminmenu_truncate_db':
+        bot.answer_callback_query(call.id)
         try:
-            dbworker.execute('TRUNCATE TABLE Users')
+            db.execute('TRUNCATE TABLE Users')
             bot.send_message(chat_id=call.message.chat.id,
-                             text='База успешно очищена!')
+                             text='База успешно очищена!', parse_mode='Markdown')
         except Exception as e:
             bot.send_message(chat_id=call.message.chat.id,
-                             text='Произошла  непредвиденная ошибка!\nТекст ошибки: %s' % e)
+                             text='Произошла  непредвиденная ошибка!\nТекст ошибки: %s' % e, parse_mode='Markdown')
+
     elif call.data == 'get_schedule':
+        bot.answer_callback_query(call.id)
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text='*Выберите пункт:*', parse_mode='Markdown', reply_markup=kb.get_schedule_by_day())
+                              text='*Выберите пункт:*',
+                              reply_markup=kb.get_schedule_by_day(), parse_mode='Markdown')
+
     elif call.data == 'get_today_schedule':
         bot.send_chat_action(call.message.chat.id, action="typing")
-        user_group = dbworker.get_info(
+        user_group = db.get_info(
             column='user_group', user_id=call.message.chat.id)[0][0]
-
+        show_teacher = db.get_info(column='show_teacher', user_id=call.message.chat.id)[0][0]
+        show_audience = db.get_info(column='show_audience', user_id=call.message.chat.id)[0][0]
         message_to_send = xls_handler.get_today_schedule(user_group)
-        print(bool(message_to_send != call.message.text))
-        if message_to_send.replace("*", "").replace("__", "") != call.message.text:
-
+        message_to_send = xls_handler.format_message(text=message_to_send,
+                                                     teacher=show_teacher,
+                                                     audience=show_audience)
+        if message_to_send.replace("*", "").replace("_", "") != call.message.text:
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                                  text=message_to_send, parse_mode='Markdown', reply_markup=kb.get_schedule_by_day())
+                                  text=message_to_send,
+                                  reply_markup=kb.get_schedule_by_day(), parse_mode='Markdown')
             bot.answer_callback_query(call.id, text="")
         else:
             bot.answer_callback_query(call.id, text='Вы видите расписание на сегодняшний день!')
 
     elif call.data == 'get_tomorrow_schedule':
+        bot.answer_callback_query(call.id)
         bot.send_chat_action(call.message.chat.id, action="typing")
-        user_group = dbworker.get_info(
+        user_group = db.get_info(
             column='user_group', user_id=call.message.chat.id)[0][0]
-
+        show_teacher = db.get_info(column='show_teacher', user_id=call.message.chat.id)[0][0]
+        show_audience = db.get_info(column='show_audience', user_id=call.message.chat.id)[0][0]
         message_to_send = xls_handler.get_tomorrow_schedule(user_group)
-        print(message_to_send)
-        if message_to_send.replace("*", "").replace("__", "") != call.message.text:
+        message_to_send = xls_handler.format_message(text=message_to_send,
+                                                     teacher=show_teacher,
+                                                     audience=show_audience)
+        if message_to_send.replace("*", "").replace("_", "") != call.message.text:
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                                  text=message_to_send, parse_mode='Markdown', reply_markup=kb.get_schedule_by_day())
-            bot.answer_callback_query(call.id, text="")
+                                  text=message_to_send,
+                                  reply_markup=kb.get_schedule_by_day(),
+                                  parse_mode='Markdown')
+            bot.answer_callback_query(call.id)
         else:
             bot.answer_callback_query(call.id, text='Вы видите расписание на завтрашний день!')
 
     elif call.data == 'adminmenu_users_count':
-        arr = dbworker.get_user_count()
+        bot.answer_callback_query(call.id)
+        arr = db.get_user_count()
         message_to_send = '__Всего пользователей:__ *%s*\n\nМТС: *%s*\nМРМ: *%s*\nИВТ: *%s*\nАЭС: *%s*\nГФ: *%s*' % (
             arr[0], arr[1], arr[2], arr[3], arr[4], arr[5])
         if call.message.text != message_to_send.replace("*", "").replace("__", ""):
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                                   text=message_to_send, reply_markup=kb.admin_user_count_keyboard(),
                                   parse_mode='Markdown')
-            bot.answer_callback_query(call.id, text="")
+            bot.answer_callback_query(call.id)
         else:
             bot.answer_callback_query(call.id, text='Изменений нет!')
+    elif call.data == 'adminmenu_shedule_updates':
+        bot.answer_callback_query(call.id)
+        query_result = db.execute("SELECT (file_name, version) from fs")
+        bot.send_message(call.message.chat.id, query_result)
     elif call.data == 'get_bot_statistic':
+        bot.answer_callback_query(call.id)
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text='*Статистика бота*', parse_mode='Markdown', reply_markup=kb.admin_statistic_menu())
+                              text='*Статистика бота*',
+                              reply_markup=kb.admin_statistic_menu(),
+                              parse_mode='Markdown')
     elif call.data == 'get_edit_db':
+        bot.answer_callback_query(call.id)
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text='*Настройка базы данных*', parse_mode='Markdown',
-                              reply_markup=kb.admin_edit_db_menu())
+                              text='*Настройка базы данных*',
+                              reply_markup=kb.admin_edit_db_menu(),
+                              parse_mode='Markdown')
         bot.answer_callback_query(call.id, text="")
+    elif call.data == 'execute_query':
+        msg = bot.send_message(call.message.chat.id, text='Введите текст запроса:', parse_mode='Markdown')
+        bot.register_next_step_handler(msg, db_execute)
+    elif call.data == 'get_addresses':
+        bot.answer_callback_query(call.id)
+        bot.send_chat_action(call.message.chat.id, action='typing')
+        bot.send_message(chat_id=call.message.chat.id,
+                         text='Главный корпус *(№1)* находится по адресу *ул. Гурьевская, д. 51*',
+                         parse_mode='Markdown')
+        bot.send_location(chat_id=call.message.chat.id,
+                          latitude=55.0131135,
+                          longitude=82.9483222)
+        bot.send_message(chat_id=call.message.chat.id,
+                         text='*Корпус 2* и *корпус 3* находятся по адресу *ул. Кирова, д. 86*',
+                         parse_mode='Markdown')
+        bot.send_location(chat_id=call.message.chat.id,
+                          latitude=55.0139281,
+                          longitude=82.9478923)
+        bot.send_message(chat_id=call.message.chat.id,
+                         text='*Корпус 4* находится по адресу *ул. Нижегородская, д. 23*')
+        bot.send_location(chat_id=call.message.chat.id,
+                          latitude=55.0126721,
+                          longitude=82.9466813)
+        bot.send_message(chat_id=call.message.chat.id,
+                         text='*Корпус 5* находится по адресу *ул. Бориса Богаткова, д. 51*',
+                         parse_mode='Markdown')
+        bot.send_location(chat_id=call.message.chat.id,
+                          latitude=55.016897,
+                          longitude=82.949896)
     else:
-        user_group = dbworker.get_info(
+        bot.answer_callback_query(call.id)
+        user_group = db.get_info(
             column='user_group', user_id=call.message.chat.id)[0][0]
         if not user_group:
-            dbworker.change_group(call.message.chat.id, call.data)
-            dbworker.change_reg_date(call.message.chat.id, str(date.today()))
+            db.change_group(call.message.chat.id, call.data)
+            db.change_reg_date(call.message.chat.id, str(date.today()))
             bot.answer_callback_query(call.id, text='Группа выбрана.')
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                                  text='*Меню:*', reply_markup=kb.main_menu(), parse_mode='Markdown')
+                                  text='*Меню:*', reply_markup=kb.main_menu(),
+                                  parse_mode='Markdown')
         else:
-            dbworker.change_group(call.message.chat.id, call.data)
+            db.change_group(call.message.chat.id, call.data)
             bot.answer_callback_query(call.id, text='Курс изменён.')
-            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='*Настройки:*',
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                  text='*Настройки:*',
                                   reply_markup=kb.make_settings_keyboard_for_user(call.message.chat.id),
                                   parse_mode='Markdown')
 
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)
-    # check_for_updates()

@@ -1,28 +1,43 @@
-from telebot import types as t
+from telebot.types import *
 from telebot.types import InlineKeyboardButton as Btn
 
-import dbworker
+from main import db
 
 
 def main_menu():
-    kb = t.InlineKeyboardMarkup()
+    """
+    Клавиатура для главного меню.
+    -Расписание
+    -Время пар
+    -Адреса корпусов
+    -Настройки
+    """
+    kb = InlineKeyboardMarkup()
     get_schedule = Btn(
         '📅 Получить расписание', callback_data='get_schedule')
-    get_schedule_by_sub = Btn(
-        '🗓️ Получить расписание по подписке', callback_data='get_schedule_by_sub')
     get_lesson_time = Btn(
         '⌚ Время пар', callback_data='get_lesson_time')
+    get_addresses = Btn(
+        '🏠 Адреса корпусов', callback_data='get_addresses'
+    )
     settings = Btn(
         '⚙️Настройки', callback_data='open_settings_menu')
     kb.add(get_schedule)
-    kb.add(get_schedule_by_sub)
     kb.add(get_lesson_time)
+    kb.add(get_addresses)
     kb.add(settings)
     return kb
 
 
 def get_schedule_by_day():
-    kb = t.InlineKeyboardMarkup()
+    """
+    Клавиатура для получения расписания.
+    -Сегодня
+    -Завтра
+    -Неделя
+    -В меню
+    """
+    kb = InlineKeyboardMarkup()
 
     today = Btn(
         'Сегодня', callback_data='get_today_schedule')
@@ -33,22 +48,28 @@ def get_schedule_by_day():
     to_menu = Btn(
         '🏠 В меню', callback_data='to_main_menu')
     kb.row(today, tomorrow)
-    kb.row(week)
-    kb.row(to_menu)
+    kb.add(week)
+    kb.add(to_menu)
     return kb
 
 
 def make_settings_keyboard_for_user(user_id):
-    user_faculty = dbworker.get_info(
+    """Персональная клавиатура настроек пользователя.
+    -Смена факультета
+    -Смена курса
+    -Смена группы
+    -Изменение форматирования (преподаватели и аудитория)
+    -Админ-меню
+    """
+    user_faculty = db.get_info(
         column='user_faculty', user_id=user_id)[0][0]
-    user_status = dbworker.get_info(column='user_admin', user_id=user_id)[0][0]
-    user_group = dbworker.get_info(column='user_group', user_id=user_id)[0][0]
-    user_subscription = dbworker.get_info(
-        column='user_subscription', user_id=user_id)[0][0]
-    user_mail = dbworker.get_info(column='user_mail', user_id=user_id)[0][0]
-    user_course = dbworker.get_info(
+    user_status = db.get_info(column='user_admin', user_id=user_id)[0][0]
+    user_group = db.get_info(column='user_group', user_id=user_id)[0][0]
+    user_course = db.get_info(
         column='user_course', user_id=user_id)[0][0]
-    kb = t.InlineKeyboardMarkup()
+    show_teacher = db.get_info(column='show_teacher', user_id=user_id)[0][0]
+    show_audience = db.get_info(column='show_audience', user_id=user_id)[0][0]
+    kb = InlineKeyboardMarkup()
     if not user_faculty:
         kb.add(Btn('⚖️ Выбрать факультет', callback_data='change_faculty'))
     else:
@@ -66,36 +87,39 @@ def make_settings_keyboard_for_user(user_id):
     else:
         kb.row(Btn('🏫 Сменить курс (%s)' % user_course, callback_data='change_course'), Btn(
             '👥 Сменить группу (%s)' % user_group, callback_data='choose_group'))
-    if user_subscription is True and user_mail is None:
-        kb.row(Btn(
-            '✔ Уведомления включены (выключить)', callback_data='off_notifications'), Btn(
-            '📧 Добавить почту', callback_data='edit_mail'))
-    elif user_subscription is False and user_mail is None:
-        kb.row(Btn(
-            '✖ Уведомления выключены (включить)', callback_data='on_notifications'), Btn(
-            '📧 Добавить почту', callback_data='edit_mail'))
-    elif user_subscription and user_mail is not None:
-        kb.row(Btn(
-            '✔ Уведомления включены (выключить)', callback_data='off_notifications'), Btn(
-            '📧 Изменить почту (%s)' % user_mail, callback_data='edit_mail'))
+    if show_teacher is True and show_audience is True:
+        kb.row(Btn('Показывать преподавателя (✔)', callback_data='change_show_teacher_status_off'),
+               Btn('Показывать аудиторию (✔)', callback_data='change_show_audience_status_off'))
+    elif show_teacher is False and show_audience is True:
+        kb.row(Btn('Показывать преподавателя (❌)', callback_data='change_show_teacher_status_on'),
+               Btn('Показывать аудиторию (✔)', callback_data='change_show_audience_status_off'))
+    elif show_teacher is True and show_audience is False:
+        kb.row(Btn('Показывать преподавателя (✔)', callback_data='change_show_teacher_status_off'),
+               Btn('Показывать аудиторию (❌)', callback_data='change_show_audience_status_on'))
     else:
-        kb.row(Btn(
-            '✔ Уведомления выключены (включить)', callback_data='on_notifications'), Btn(
-            '📧 Изменить почту (%s)' % user_mail, callback_data='edit_mail'))
+        kb.row(Btn('Показывать преподавателя (❌)', callback_data='change_show_teacher_status_on'),
+               Btn('Показывать аудиторию (❌)', callback_data='change_show_audience_status_on'))
+
     if user_status:
-        kb.row(Btn(
+        kb.add(Btn(
             '🛡️ Админка 🛡️', callback_data='generate_admin_keyboard'))
     delete_me = Btn('🗑️ Удалить аккаунт 🗑️', callback_data='delete_me')
     to_menu = Btn(
         '🏠 В меню', callback_data='to_main_menu')
-
     kb.add(delete_me)
     kb.add(to_menu)
     return kb
 
 
 def faculty_menu():
-    kb = t.InlineKeyboardMarkup()
+    """Меню выбора факультета.
+    -МТС
+    -МРМ
+    -ИВТ
+    -ГФ
+    -АЭС
+    """
+    kb = InlineKeyboardMarkup()
 
     mts = Btn('МТС', callback_data='MTS_faculty')
     mrm = Btn('МРМ', callback_data='MRM_faculty')
@@ -110,10 +134,11 @@ def faculty_menu():
 
 
 def group_keyboard(user_id):
-    kb = t.InlineKeyboardMarkup()
-    user_faculty = dbworker.get_info(
+    """Меню выбора группы."""
+    kb = InlineKeyboardMarkup()
+    user_faculty = db.get_info(
         column='user_faculty', user_id=user_id)[0][0]
-    user_course = dbworker.get_info(
+    user_course = db.get_info(
         column='user_course', user_id=user_id)[0][0]
     if user_faculty == 'МТС' and user_course == 1:
         kb.row(Btn('МО-95', callback_data='МО-95'),
@@ -311,9 +336,17 @@ def group_keyboard(user_id):
 
 
 def course_keyboard(user_id):
-    user_faculty = dbworker.get_info(
+    """Меню выбора курса.
+    -1 курс
+    -2 курс
+    -3 курс
+    -4 курс
+    -5 курс
+    -6 курс
+    """
+    user_faculty = db.get_info(
         column='user_faculty', user_id=user_id)[0][0]
-    kb = t.InlineKeyboardMarkup()
+    kb = InlineKeyboardMarkup()
 
     first_course = Btn('1 курс', callback_data='set_1_course')
     second_course = Btn('2 курс', callback_data='set_2_course')
@@ -323,13 +356,14 @@ def course_keyboard(user_id):
     kb.row(first_course, second_course)
     kb.row(third_course, fourth_course)
     if user_faculty == 'АЭС':
-        fiveth_course = Btn('5 курс', callback_data='set_5_course')
-        kb.row(fiveth_course)
+        fifth_course = Btn('5 курс', callback_data='set_5_course')
+        kb.row(fifth_course)
     return kb
 
 
 def lesson_time():
-    kb = t.InlineKeyboardMarkup()
+    """Меню обновления времени."""
+    kb = InlineKeyboardMarkup()
     kb.add(Btn(
         '🔄 Обновить', callback_data='reload_time'))
     kb.add(Btn('🏠 В меню', callback_data='to_main_menu'))
@@ -337,31 +371,48 @@ def lesson_time():
 
 
 def admin_menu():
-    kb = t.InlineKeyboardMarkup()
+    """Админ-меню.
+    -Статистика
+    -Управление БД
+    -Выполнить запрос
+    -В настройки
+    """
+    kb = InlineKeyboardMarkup()
 
     statistic = Btn('📈 Статистика', callback_data='get_bot_statistic')
     edit_db = Btn('📙 Управление БД', callback_data='get_edit_db')
+    execute_query = Btn('Выполнить запрос', callback_data='execute_query')
     to_settings = Btn('⚙️ В настройки', callback_data='to_settings')
 
     kb.add(statistic, edit_db)
+    kb.add(execute_query)
     kb.add(to_settings)
     return kb
 
 
 def admin_statistic_menu():
-    kb = t.InlineKeyboardMarkup()
+    """Меню статистики [Админ-меню]
+    -Кол-во пользователей
+    -Вернуться в админку
+    """
+    kb = InlineKeyboardMarkup()
 
     users_count = Btn(
         'Кол-во юзеров', callback_data='adminmenu_users_count')
+    shedule_updates = Btn('Обновления расписания', callback_data='adminmenu_shedule_updates')
     return_to_adminmenu = Btn(
         'Вернуться в админку', callback_data='generate_admin_keyboard')
-    kb.add(users_count)
+    kb.add(users_count, shedule_updates)
     kb.add(return_to_adminmenu)
     return kb
 
 
 def admin_user_count_keyboard():
-    kb = t.InlineKeyboardMarkup()
+    """Меню подсчета пользователей.
+    -Обновить
+    -Вернуться в админку
+    """
+    kb = InlineKeyboardMarkup()
     reload = Btn('Обновить', callback_data='adminmenu_users_count')
     return_to_adminmenu = Btn(
         'Вернуться в админку', callback_data='generate_admin_keyboard')
@@ -371,11 +422,16 @@ def admin_user_count_keyboard():
 
 
 def admin_edit_db_menu():
-    kb = t.InlineKeyboardMarkup()
+    """Управление базой данных [Админ-меню]
+    -Удалить запись
+    -Очистить базу
+    -Вернуться в админку
+    """
+    kb = InlineKeyboardMarkup()
 
     delete_string = Btn(
         'Удалить запись', callback_data='adminmenu_delete_string')
-    delete_db = Btn('Удалить базу', callback_data='adminmenu_delete_db')
+    delete_db = Btn('Очистить базу', callback_data='adminmenu_truncate_table')
     truncate_db = Btn(
         'Очистить базу', callback_data='adminmenu_truncate_db')
     return_to_adminmenu = Btn(
@@ -387,7 +443,8 @@ def admin_edit_db_menu():
 
 
 def delete_me_menu():
-    kb = t.InlineKeyboardMarkup()
+    """Меню самоудаления."""
+    kb = InlineKeyboardMarkup()
     kb.row(Btn('Уверен, удалить', callback_data='delete_me_yes'),
            Btn('Я передумал(а)', callback_data='delete_me_no'))
     return kb
