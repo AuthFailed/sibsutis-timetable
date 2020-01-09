@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
+from config import db
 from datetime import datetime, date
 from urllib import request
 
@@ -8,190 +9,200 @@ import requests
 from bs4 import BeautifulSoup as Soup
 from openpyxl import load_workbook, utils as u
 from openpyxl.utils import get_column_letter
+import event_handler
 
 import group_list as gl
-from main import db
+
 global number_of_lessons
 
 
-def get_xls_for_user(user_group):
+def get_xls_for_user(user_group, user_id):
     """Выбрать/скачать файл для определённой группы."""
-    if user_group in gl.mts_1_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A2%D0%A1", "МТС1к")
-        wb = load_workbook("./schedule_files/МТС1к.xlsx")
-    elif user_group in gl.mts_2_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A2%D0%A1", "МТС2к")
-        wb = load_workbook("./schedule_files/МТС2к.xlsx")
-    elif user_group in gl.mts_3_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A2%D0%A1", "МТС3к")
-        wb = load_workbook("./schedule_files/МТС3к.xlsx")
-    elif user_group in gl.mts_4_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A2%D0%A1", "МТС4к")
-        wb = load_workbook("./schedule_files/МТС4к.xlsx")
-    elif user_group in gl.mrm_1_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A0%D0%9C", "МРМ1к")
-        wb = load_workbook("./schedule_files/МРМ1к.xlsx")
-    elif user_group in gl.mrm_2_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A0%D0%9C", "МРМ2к")
-        wb = load_workbook("./schedule_files/МРМ2к.xlsx")
-    elif user_group in gl.mrm_3_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A0%D0%9C", "МРМ3к")
-        wb = load_workbook("./schedule_files/МРМ3к.xlsx")
-    elif user_group in gl.mrm_4_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A0%D0%9C", "МРМ4к")
-        wb = load_workbook("./schedule_files/МРМ4к.xlsx")
-    elif user_group in gl.ivt_1_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%98%D0%92%D0%A2", "ИВТ1к")
-        wb = load_workbook("./schedule_files/ИВТ1к.xlsx")
-    elif user_group in gl.ivt_2_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%98%D0%92%D0%A2", "ИВТ2к")
-        wb = load_workbook("./schedule_files/ИВТ2к.xlsx")
-    elif user_group in gl.ivt_3_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%98%D0%92%D0%A2", "ИВТ3к")
-        wb = load_workbook("./schedule_files/ИВТ3к.xlsx")
-    elif user_group in gl.ivt_4_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%98%D0%92%D0%A2", "ИВТ4к")
-        wb = load_workbook("./schedule_files/ИВТ4к.xlsx")
-    elif user_group in gl.gf_1_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%93%D0%A4", "ГФ1к")
-        wb = load_workbook("./schedule_files/ГФ1к.xlsx")
-    elif user_group in gl.gf_2_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%93%D0%A4", "ГФ2к")
-        wb = load_workbook("./schedule_files/ГФ2к.xlsx")
-    elif user_group in gl.gf_3_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%93%D0%A4", "ГФ3к")
-        wb = load_workbook("./schedule_files/ГФ3к.xlsx")
-    elif user_group in gl.gf_4_course:
-        update_schedule_files(
-            u"https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%93%D0%A4", "ГФ4к")
-        wb = load_workbook("./schedule_files/ГФ4к.xlsx")
-    elif user_group in gl.aes_1_course:
-        update_schedule_files(
-            "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
-            "АЭС1к")
-        wb = load_workbook("./schedule_files/АЭС1к.xlsx")
-    elif user_group in gl.aes_2_course:
-        update_schedule_files(
-            "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
-            "АЭС2к")
-        wb = load_workbook("./schedule_files/АЭС2к.xlsx")
-    elif user_group in gl.aes_3_course:
-        update_schedule_files(
-            "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
-            "АЭС3к")
-        wb = load_workbook("./schedule_files/АЭС3к.xlsx")
-    elif user_group in gl.aes_4_course:
-        update_schedule_files(
-            "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
-            "АЭС4к")
-        wb = load_workbook("./schedule_files/АЭС4к.xlsx")
-    else:
-        update_schedule_files(
-            "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
-            "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
-            "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
-            "АЭС5к")
-        wb = load_workbook("./schedule_files/АЭС5к.xlsx")
+    try:
+        if user_group in gl.mts_1_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A2%D0%A1", "МТС1к")
+            wb = load_workbook(filename="./schedule_files/МТС1к.xlsx")
+        elif user_group in gl.mts_2_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A2%D0%A1", "МТС2к")
+            wb = load_workbook(filename="./schedule_files/МТС2к.xlsx")
+        elif user_group in gl.mts_3_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A2%D0%A1", "МТС3к")
+            wb = load_workbook(filename="./schedule_files/МТС3к.xlsx")
+        elif user_group in gl.mts_4_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A2%D0%A1", "МТС4к")
+            wb = load_workbook(filename="./schedule_files/МТС4к.xlsx")
+        elif user_group in gl.mrm_1_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A0%D0%9C", "МРМ1к")
+            wb = load_workbook(filename="./schedule_files/МРМ1к.xlsx")
+        elif user_group in gl.mrm_2_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A0%D0%9C", "МРМ2к")
+            wb = load_workbook(filename="./schedule_files/МРМ2к.xlsx")
+        elif user_group in gl.mrm_3_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A0%D0%9C", "МРМ3к")
+            wb = load_workbook(filename="./schedule_files/МРМ3к.xlsx")
+        elif user_group in gl.mrm_4_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%9C%D0%A0%D0%9C", "МРМ4к")
+            wb = load_workbook(filename="./schedule_files/МРМ4к.xlsx")
+        elif user_group in gl.ivt_1_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%98%D0%92%D0%A2", "ИВТ1к")
+            wb = load_workbook(filename="./schedule_files/ИВТ1к.xlsx")
+        elif user_group in gl.ivt_2_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%98%D0%92%D0%A2", "ИВТ2к")
+            wb = load_workbook(filename="./schedule_files/ИВТ2к.xlsx")
+        elif user_group in gl.ivt_3_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%98%D0%92%D0%A2", "ИВТ3к")
+            wb = load_workbook(filename="./schedule_files/ИВТ3к.xlsx")
+        elif user_group in gl.ivt_4_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%98%D0%92%D0%A2", "ИВТ4к")
+            wb = load_workbook(filename="./schedule_files/ИВТ4к.xlsx")
+        elif user_group in gl.gf_1_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%93%D0%A4", "ГФ1к")
+            wb = load_workbook(filename="./schedule_files/ГФ1к.xlsx")
+        elif user_group in gl.gf_2_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%93%D0%A4",
+                "ГФ2к")
+            wb = load_workbook(filename="./schedule_files/ГФ2к.xlsx")
+        elif user_group in gl.gf_3_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%93%D0%A4",
+                "ГФ3к")
+            wb = load_workbook(filename="./schedule_files/ГФ3к.xlsx")
+        elif user_group in gl.gf_4_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                u"/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                u"%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%93%D0%A4",
+                "ГФ4к")
+            wb = load_workbook(filename="./schedule_files/ГФ4к.xlsx")
+        elif user_group in gl.aes_1_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
+                "АЭС1к")
+            wb = load_workbook(filename="./schedule_files/АЭС1к.xlsx")
+        elif user_group in gl.aes_2_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
+                "АЭС2к")
+            wb = load_workbook(filename="./schedule_files/АЭС2к.xlsx")
+        elif user_group in gl.aes_3_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
+                "АЭС3к")
+            wb = load_workbook(filename="./schedule_files/АЭС3к.xlsx")
+        elif user_group in gl.aes_4_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
+                "АЭС4к")
+            wb = load_workbook(filename="./schedule_files/АЭС4к.xlsx")
+        elif user_group in gl.aes_5_course:
+            update_schedule_files(
+                "https://sibsutis.ru/students/study/%D0%A0%D0%B0%D1%81%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20xlsx"
+                "/2019(%D0%BE%D1%81%D0%B5%D0%BD%D1%8C,"
+                "%D0%B4%D0%BE%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BB%D0%BE%D0%BC%D0%B0)/%D0%90%D0%AD%D0%A1",
+                "АЭС5к")
+            wb = load_workbook(filename="./schedule_files/АЭС5к.xlsx")
+    except Exception as e:
+        event_handler.new_error(error_name=e, user_id=user_id)
+
     wb = wb.get_sheet_by_name("TDSheet")
     return wb
 
 
-def get_today_schedule(user_group):
+def get_today_schedule(user_group, user_id):
     """Получить сегодняшнее расписание."""
     info = []
-    message_to_send = ""
+    answer_message = ""
+    num_of_lessons = 0
     today = get_weekday(datetime.weekday(datetime.now(pytz.timezone('Asia/Bangkok'))))
     if today[1] != "Воскресенье":
         letter = ''
-        num_of_lessons = 0
 
-        xls = get_xls_for_user(user_group)
+        xls = get_xls_for_user(user_group, user_id=user_id)
 
         for cellobj in xls["C4":"Z4"]:
             for cell in cellobj:
                 if user_group == cell.value:
                     letter = get_column_letter(u.coordinate_to_tuple(cell.coordinate)[1])
                     break
-        message_to_send += "*" + today[1]
+        answer_message += "*" + today[1] + "*\n\n"
         for i in range(0, len(today[0])):
             point = letter + str(today[0][i])
             if type(xls[point]).__name__ == "MergedCell":
-                point = xls[point].column + str(xls[point].row - 1)
+                point = letter + str(xls[point].row - 1)
             if xls[point].value is not None:
-                time = xls["B%s" % (int(xls[point].row))].value
-                info = work_with_time(time=time, cell=xls[point].value)[:]
-                message_to_send += info[0]
+                lesson_time = xls["B%s" % (int(xls[point].row))].value
+                if type(xls["B%s" % (int(xls[point].row))]).__name__ == "MergedCell":
+                    lesson_time = xls["B%s" % (int(xls[point].row) - 1)].value
+                info = work_with_time(lesson_time=lesson_time, cell=xls[point].value)[:]
+                answer_message += info[0]
                 num_of_lessons += 1
         if len(info):
             if info[1] is not 0:
-                message_to_send = format_message(message_to_send)
-                message_to_send += "\nСегодня *{0}* пар(ы). Последняя пара кончается в *{1}*.".format(num_of_lessons,
-                                                                                                      info[1][11:-3])
+                answer_message = format_message(answer_message)
+                answer_message += "\nСегодня *{0}* пар(ы). Последняя пара кончается в *{1}*.".format(num_of_lessons,
+                                                                                                     info[1][11:-3])
             else:
-                message_to_send += "\n\nСегодня выходной! Отдыхай 😊"
+                answer_message += "\n\nСегодня выходной! Отдыхай 😊"
         else:
-            message_to_send += "\n\nСегодня выходной! Отдыхай 😊"
+            answer_message += "\n\nСегодня выходной! Отдыхай 😊"
     else:
-        message_to_send += "*Воскресенье*\n\nСегодня выходной! Отдыхай 😊"
-    return message_to_send
+        answer_message += "*Воскресенье*\n\nСегодня выходной! Отдыхай 😊"
+    return answer_message
 
 
-def get_tomorrow_schedule(user_group):
+def get_tomorrow_schedule(user_group, user_id):
     """Получить завтрашнее расписание."""
     info = []
     num_of_lessons = 0
@@ -201,9 +212,9 @@ def get_tomorrow_schedule(user_group):
         tomorrow = get_weekday(datetime.weekday(datetime.now().astimezone(pytz.timezone('Asia/Bangkok'))) + 1)
     if tomorrow[1] != "Воскресенье":
         letter = ""
-        message_to_send = ""
+        answer_message = ""
 
-        xls = get_xls_for_user(user_group)
+        xls = get_xls_for_user(user_group, user_id=user_id)
 
         for cellobj in xls["C4":"Z4"]:
             for cell in cellobj:
@@ -211,52 +222,53 @@ def get_tomorrow_schedule(user_group):
                     letter = get_column_letter(u.coordinate_to_tuple(cell.coordinate)[1])
                     break
 
-        message_to_send += "*" + tomorrow[1] + "*\n\n"
+        answer_message += "*" + tomorrow[1] + "*\n\n"
         for i in range(0, len(tomorrow[0])):
             point = letter + str(tomorrow[0][i])
             if type(xls[point]).__name__ == "MergedCell":
-                point = xls[point].column + str(xls[point].row - 1)
+                point = letter + str(xls[point].row - 1)
             if xls[point].value is not None:
-                time = xls["B%s" % (int(xls[point].row))].value
-                info = work_with_time(time=time, cell=xls[point].value)[:]
-                message_to_send += info[0]
+                lesson_time = xls["B%s" % (int(xls[point].row))].value
+                if type(xls["B%s" % (int(xls[point].row))]).__name__ == "MergedCell":
+                    lesson_time = xls["B%s" % (int(xls[point].row) - 1)].value
+                info = work_with_time(lesson_time=lesson_time, cell=xls[point].value)[:]
+                answer_message += info[0]
                 num_of_lessons += 1
-            message_to_send = format_message(message_to_send)
-            if len(info):
-                message_to_send += "\n\nЗавтра *{0}* пар(ы). Последняя пара кончается в *{1}*.".format(num_of_lessons,
-                                                                                                       info[1][11:-3]
-                                                                                                       )
+            answer_message = format_message(answer_message)
+        if len(info):
+            answer_message += "\nЗавтра *{0}* пар(ы). Последняя пара кончается в *{1}*.".format(num_of_lessons,
+                                                                                                info[1][11:-3]
+                                                                                                )
         else:
-            message_to_send += "\n\nЗавтра выходной! Отдыхай 😊"
-        return message_to_send
+            answer_message += "\n\nЗавтра выходной! Отдыхай 😊"
+        return answer_message
     else:
-        message_to_send = "*Воскресенье*\n\nЗавтра выходной! Отдыхай 😊"
-        return message_to_send
+        answer_message = "*Воскресенье*\n\nЗавтра выходной! Отдыхай 😊"
+        return answer_message
 
 
-def work_with_time(time, cell):
-    print(time, cell)
-    message_to_send = ''
+def work_with_time(lesson_time, cell):
+    answer_message = ''
     last_lesson_time = ''
-    if time == "8:00:00 - 9:35:00":
-        message_to_send += "*8:00 — 9:35*\n" + cell + "\n"
-        last_lesson_time = time
-    elif time == "9:50:00 - 11:25:00":
-        message_to_send += "*9:50 — 11:25*\n" + cell + "\n"
-        last_lesson_time = time
-    elif time == "11:40:00 - 13:15:00":
-        message_to_send += "*11:40 — 13:15*\n" + cell + "\n"
-        last_lesson_time = time
-    elif time == "13:45:00 - 15:20:00":
-        message_to_send += "*13:45 — 15:20*\n" + cell + "\n"
-        last_lesson_time = time
-    elif time == "15:35:00 - 17:10:00":
-        message_to_send += "*15:35 — 17:10*\n" + cell + "\n"
-        last_lesson_time = time
-    elif time == "17:25:00 - 19:00:00":
-        message_to_send += "*17:25 — 19:00*\n" + cell + "\n"
-        last_lesson_time = time
-    arr = [message_to_send, last_lesson_time]
+    if lesson_time == "8:00:00 - 9:35:00":
+        answer_message += "🕗*8:00 — 9:35*\n" + cell + "\n"
+        last_lesson_time = lesson_time
+    elif lesson_time == "9:50:00 - 11:25:00":
+        answer_message += "🕙*9:50 — 11:25*\n" + cell + "\n\n"
+        last_lesson_time = lesson_time
+    elif lesson_time == "11:40:00 - 13:15:00":
+        answer_message += "🕦*11:40 — 13:15*\n" + cell + "\n\n"
+        last_lesson_time = lesson_time
+    elif lesson_time == "13:45:00 - 15:20:00":
+        answer_message += "🕜*13:45 — 15:20*\n" + cell + "\n\n"
+        last_lesson_time = lesson_time
+    elif lesson_time == "15:35:00 - 17:10:00":
+        answer_message += "🕞*15:35 — 17:10*\n" + cell + "\n\n"
+        last_lesson_time = lesson_time
+    elif lesson_time == "17:25:00 - 19:00:00":
+        answer_message += "🕠*17:25 — 19:00*\n" + cell + "\n\n"
+        last_lesson_time = lesson_time
+    arr = [answer_message, last_lesson_time]
     return arr
 
 
@@ -295,17 +307,34 @@ def personal_format_msg(text, show_teacher, show_audience):
 
 def update_schedule_files(link, group):
     """Обновление устаревших файлов расписания."""
-    url = request.urlopen(link)
+    global r
+    try:
+        url = request.urlopen(link)
+    except Exception as e:
+        raise "Произошла ошибка: %s" % e
     if url.getcode() == 200:
         soup = Soup(url, "html.parser")
         text = soup.find("a", attrs={"class": "element-title",
                                      "data-bx-title": "%s.xlsx" % group})
         parsed_time = text["data-bx-datemodify"]
         download_link = u"https://sibsutis.ru%s" % (text["data-bx-download"])
-        if db.execute(query="SELECT update_time from fs WHERE file_name=%s" % group) != parsed_time:
-            db.update_time(file_name=group, time=parsed_time)
-            r = requests.get(download_link.encode('utf8'), allow_redirects=True)
-            open('./schedule_files/{}.xlsx'.format(group), 'wb').write(r.content)
+        try:
+            result = db.execute(query=f"SELECT update_time FROM fs WHERE file_name=\'%s\'" % group,
+                                has_answer=True)
+            if result[0][0] != parsed_time:
+                db.update_time(file_name=group, update_time=parsed_time)
+                r = requests.get(download_link.encode('utf8'), allow_redirects=True)
+                print(r)
+                open(file='./schedule_files/{}.xlsx'.format(group), mode='wb').write(r.content)
+        except:
+            db.execute(query=f"INSERT INTO fs VALUES (\'%s\') ON CONFLICT (file_name) DO NOTHING" % group)
+            result = db.execute(query=f"SELECT update_time FROM fs WHERE file_name=\'%s\'" % group,
+                                has_answer=True)
+            if result[0][0] != parsed_time:
+                db.update_time(file_name=group, update_time=parsed_time)
+                r = requests.get(download_link.encode('utf8'), allow_redirects=True)
+                print(r)
+                open(file='./schedule_files/{}.xlsx'.format(group), mode='wb').write(r.content)
     else:
         raise Exception("Соединение не установлено")
 
