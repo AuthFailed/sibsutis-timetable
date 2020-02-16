@@ -29,9 +29,9 @@ class Database:
             try:
                 answer = cursor.fetchall()
                 if len(answer):
-                    print('SQL answ:', dict(answer[0]), file=stderr)
+                    print('SQL answer:', dict(answer[0]), file=stderr)
                 else:
-                    print('SQL answ:', answer, file=stderr)
+                    print('SQL answer:', answer, file=stderr)
             except psycopg2.Error as err:
                 print(err, file=stderr)
                 conn.rollback()
@@ -47,15 +47,19 @@ class Database:
             return dict(error=dict(message="Database connection refused"))
 
     @classmethod
+    def execute(cls, query):
+        return cls.__execute(query)
+
+    @classmethod
     def get_info(cls, user_id, column):
         """Получаем информацию об определенном пользователе."""
-        query = 'SELECT %s FROM Users WHERE user_id=%s' % (column, user_id)
+        query = f'SELECT {column} FROM users WHERE user_id = {user_id}'
         return cls.__execute(query)
 
     @classmethod
     def user_exists(cls, user_id):
         """Проверяем существование пользователя."""
-        query = 'SELECT * FROM Users WHERE user_id = %s' % user_id
+        query = cls.__execute(f'SELECT * FROM users WHERE user_id = {user_id}')
         if not query:
             return False
         else:
@@ -64,89 +68,95 @@ class Database:
     @classmethod
     def get_person(cls, user_id):
         """Получаем пользователя из базы."""
-        query = 'SELECT * FROM Users WHERE user_id=%s' % user_id
+        query = f'SELECT * FROM users WHERE user_id={user_id}'
         result = cls.__execute(query)
         if not result:
-            cls.__execute('INSERT INTO Users (user_id) VALUES (%s)' % user_id)
-            cls.__execute('SELECT * FROM Users WHERE user_id=%s' % user_id)
-        cls.__execute('SELECT * FROM Users WHERE user_id=%s' % user_id)
+            cls.__execute(f'INSERT INTO users (user_id) VALUES ({user_id})')
+            cls.__execute(f'SELECT * FROM users WHERE user_id = {user_id}')
+        cls.__execute(f'SELECT * FROM users WHERE user_id = {user_id}')
         return result
 
     @classmethod
     def change_faculty(cls, user_id, faculty):
         """Смена факультета пользователя."""
-        query = 'UPDATE Users SET user_faculty = \'%s\' WHERE user_id = %s' % (faculty, user_id)
+        query = f'UPDATE users SET faculty = \'{faculty}\' WHERE user_id = {user_id}'
         return cls.__execute(query)
 
     @classmethod
     def change_course(cls, user_id, course):
         """Смена курса пользователя."""
-        query = 'UPDATE Users SET user_course = \'%s\' WHERE user_id = %s' % (course, user_id)
+        query = f'UPDATE users SET course = {course} WHERE user_id = {user_id}'
         return cls.__execute(query)
 
     @classmethod
     def change_group(cls, user_id, group):
         """Смена группы пользователя."""
-        query = 'UPDATE Users SET user_group = \'%s\' WHERE user_id = %s' % (group, user_id)
+        query = f'UPDATE users SET \"group\" = \'{group}\' WHERE user_id = {user_id}'
         return cls.__execute(query)
 
     @classmethod
-    def change_reg_date(cls, user_id, reg_date):
+    def change_registration_date(cls, user_id):
         """Установка даты регистрации."""
-        query = 'UPDATE Users SET reg_date = (to_date(\'%s\', \'YYYY-MM-DD\')) WHERE user_id = %s' % (reg_date, user_id)
+        query = f'UPDATE users SET registration_date = NOW()::timestamp WHERE user_id = {user_id}'
         cls.__execute(query)
 
     @classmethod
     def get_user_count(cls):
         """Статистика людей по факультетам."""
         array = []
-        result = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM Users")
-        print(result)
-        # array.append(str(result[0])
-        # result = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM Users where user_faculty=\'МТС\'")
-        # array.append(str(result[0]))
-        # result = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM Users where user_faculty=\'МРМ\'")
-        # array.append(str(result[0]))
-        # result = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM Users where user_faculty=\'ИВТ\'")
-        # array.append(str(result[0]))
-        # result = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM Users where user_faculty=\'АЭС\'")
-        # array.append(str(result[0]))
-        # result = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM Users where user_faculty=\'ГФ\'")
-        # array.append(str(result[0]))
+        result = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM users")
+        array.append(result['count'])
+        mst_count = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM users WHERE faculty = \'МТС\'")
+        array.append(mst_count['count'])
+        mrm_count = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM users WHERE faculty = \'МРМ\'")
+        array.append(mrm_count['count'])
+        ivt_count = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM users WHERE faculty = \'ИВТ\'")
+        array.append(ivt_count['count'])
+        aes_count = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM users WHERE faculty = \'АЭС\'")
+        array.append(aes_count['count'])
+        gf_count = cls.__execute("SELECT COUNT(DISTINCT user_id) FROM users WHERE faculty = \'ГФ\'")
+        array.append(gf_count['count'])
         return array
 
     @classmethod
     def change_show_audience_status(cls, user_id, status):
         """Смена форматирования - показ аудитории."""
-        query = 'UPDATE Users SET show_audience = {} WHERE user_id = {}'.format(status, user_id)
+        query = f'UPDATE users SET show_audience = {status} WHERE user_id = {user_id}'
         return cls.__execute(query)
 
     @classmethod
     def change_show_teacher_status(cls, user_id, status):
         """Смена форматирования - показ преподавателя."""
-        query = 'UPDATE Users SET show_teacher = {} WHERE user_id = {}'.format(status, user_id)
+        query = f'UPDATE users SET show_teacher = {status} WHERE user_id = {user_id}'
         return cls.__execute(query)
 
     @classmethod
     def delete_person(cls, user_id):
         """Удаление пользователя из бд."""
-        query = f"DELETE FROM Users WHERE user_id={user_id}"
-        return cls.__execute(query)
+        query = f"DELETE FROM users WHERE user_id={user_id}"
+        cls.__execute(query)
 
     @classmethod
     def update_time(cls, file_name, update_time):
         """Дата последнего изменения файла."""
-        query = f"""INSERT INTO fs (file_name, update_time)
-                                 VALUES (\'%s\', \'%s\')
-                                 ON CONFLICT (file_name) DO UPDATE
-                                    SET update_time=\'%s\', version=\'%i\'""" % (file_name, update_time, update_time, int(cls.get_version(file_name)[0][0])+1)
-        return cls.__execute(query)
+        if len(cls.__execute(f"SELECT version FROM fs WHERE file_name=\'{file_name}\'")) == 0:
+            query = f"INSERT INTO fs (file_name, update_time) VALUES (\'{file_name}\', \'{update_time}\')"
+        else:
+            query = f"UPDATE fs SET update_time=\'{update_time}\', version=\'{cls.get_version(file_name)['version'] + 1}\'"
+        cls.__execute(query)
 
     @classmethod
     def get_version(cls, file_name):
         """Получение версии файла."""
         query = f"SELECT version FROM fs WHERE file_name=\'{file_name}\'"
-        return cls.__execute()
+        result = cls.__execute(query)
+        return result
+
+    @classmethod
+    def get_files_stats(cls):
+        """Получение статистики по обновлению расписания."""
+        query = f"select * from fs"
+        return cls.__execute(query)
 
     @classmethod
     def truncate_table(cls):

@@ -1,5 +1,6 @@
 from aiogram.types.inline_keyboard import *
-from config import db
+from config import db, bot
+
 Btn = InlineKeyboardButton
 
 
@@ -11,10 +12,13 @@ def main_menu():
     -Параметры
     """
     kb = InlineKeyboardMarkup()
+
     get_schedule = Btn(text='📅 Расписание', callback_data='get_schedule')
     get_lesson_time = Btn(text='⌚ Время пар', callback_data='get_lesson_time')
-    additional_info = Btn('ℹ️ Доп. информация', callback_data='additional_info')
+    additional_info = Btn(text='ℹ️ Доп. информация',
+                          callback_data='additional_info')
     settings = Btn(text='⚙  Параметры', callback_data='open_parameters_menu')
+
     kb.row(get_schedule, get_lesson_time)
     kb.add(additional_info)
     kb.add(settings)
@@ -35,6 +39,7 @@ def get_schedule_by_day():
     tomorrow = Btn(text='Завтра', callback_data='get_tomorrow_schedule')
     week = Btn(text='Неделя', callback_data='get_week_schedule')
     to_menu = Btn(text='🏠 В меню', callback_data='to_main_menu')
+
     kb.row(today, tomorrow)
     kb.add(week)
     kb.add(to_menu)
@@ -44,20 +49,20 @@ def get_schedule_by_day():
 def make_settings_keyboard_for_user(user_id):
     """Персональная клавиатура настроек пользователя.
     -Персональные настройки
-    -Форматирование
     -Админ-меню
     -🏠 В меню
     """
 
     kb = InlineKeyboardMarkup()
-    user_status = db.get_info(column='user_admin', user_id=user_id)
+    user_status = db.get_person(user_id=user_id)['is_admin']
 
-    kb.row(Btn(text='Персон. настройки', callback_data='personal_settings'),
-           Btn(text='Форматирование', callback_data='edit_format_settings'))
+    personal_settings = Btn(text='Персон. настройки', callback_data='personal_settings')
+    kb.add(personal_settings)
     if user_status:
-        kb.add(Btn(text='🛡️ Админка 🛡️', callback_data='generate_admin_keyboard'))
+       kb.add(Btn(text='🛡️ Админка 🛡️', callback_data='generate_admin_keyboard'))
     delete_me = Btn(text='🗑️ Удалить аккаунт 🗑️', callback_data='delete_me')
     to_menu = Btn(text='🏠 В меню', callback_data='to_main_menu')
+
     kb.add(delete_me)
     kb.add(to_menu)
     return kb
@@ -73,7 +78,7 @@ def personal_settings_menu(user_id, faculty, course, group):
     kb.add(Btn(text='⚖️ Сменить факультет', callback_data='change_faculty'))
     kb.row(Btn(text='🏫 Сменить курс', callback_data='change_course'),
            Btn(text='👥 Сменить группу', callback_data='choose_group'))
-    kb.row(Btn(text='⚙  В параметры', callback_data='to_settings'),
+    kb.row(Btn(text='⚙  В параметры', callback_data='open_parameters_menu'),
            Btn(text='🏠 В меню', callback_data='to_main_menu'))
     return kb
 
@@ -103,11 +108,10 @@ def faculty_menu():
 def group_keyboard(user_id):
     """Меню выбора группы."""
     kb = InlineKeyboardMarkup()
-    user_faculty = db.get_info(
-        column='user_faculty', user_id=user_id)
-    user_course = db.get_info(
-        column='user_course', user_id=user_id)
-    if user_faculty == 'МТС' and user_course == 1:
+    db_answer = db.get_person(user_id=user_id)
+    faculty = db_answer['faculty']
+    course = db_answer['course']
+    if faculty == 'МТС' and course == 1:
         kb.row(Btn(text='МО-95', callback_data='МО-95'),
                Btn(text='МО-96', callback_data='МО-96'),
                Btn(text='ММ-91', callback_data='ММ-91'))
@@ -115,7 +119,7 @@ def group_keyboard(user_id):
                Btn(text='МП-98', callback_data='МП-98'))
         kb.row(Btn(text='МИ-97', callback_data='МИ-97'),
                Btn(text='МГ-196', callback_data='МГ-196'))
-    elif user_faculty == 'МТС' and user_course == 2:
+    elif faculty == 'МТС' and course == 2:
         kb.row(Btn(text='МО-85', callback_data='МО-85'),
                Btn(text='МО-86', callback_data='МО-86'),
                Btn(text='МИ-87', callback_data='МИ-87'),
@@ -124,19 +128,19 @@ def group_keyboard(user_id):
                Btn(text='МГ-187', callback_data='МГ-187'),
                Btn(text='ММП-82', callback_data='ММП-82'),
                Btn(text='МПП-88', callback_data='МПП-88'))
-    elif user_faculty == 'МТС' and user_course == 3:
+    elif faculty == 'МТС' and course == 3:
         kb.row(Btn(text='ММП-71', callback_data='ММП-71'),
                Btn(text='ММП-72', callback_data='ММП-72'),
                Btn(text='МО-75', callback_data='МО-75'),
                Btn(text='МПП-78', callback_data='МПП-78'),
                Btn(text='МИ-77', callback_data='МИ-77'))
-    elif user_faculty == 'МТС' and user_course == 4:
+    elif faculty == 'МТС' and course == 4:
         kb.row(Btn(text='МО-65', callback_data='МО-65'),
                Btn(text='МО-66', callback_data='МО-66'),
                Btn(text='МИ-67', callback_data='МИ-67'),
                Btn(text='ММП-61', callback_data='ММП-61'),
                Btn(text='МПП-68', callback_data='МПП-68'))
-    elif user_faculty == 'МРМ' and user_course == 1:
+    elif faculty == 'МРМ' and course == 1:
         kb.row(Btn(text='РИ-91', callback_data='РИ-91'),
                Btn(text='РИ-92', callback_data='РИ-92'),
                Btn(text='РИ-93', callback_data='РИ-93'))
@@ -146,7 +150,7 @@ def group_keyboard(user_id):
         kb.row(Btn(text='РТ-91', callback_data='РТ-91'),
                Btn(text='РЦ-91', callback_data='РЦ-91'),
                Btn(text='РП-91', callback_data='РП-91'))
-    elif user_faculty == 'МРМ' and user_course == 2:
+    elif faculty == 'МРМ' and course == 2:
         kb.row(Btn(text='РИ-87', callback_data='РИ-87'),
                Btn(text='РИ-88', callback_data='РИ-88'),
                Btn(text='РИ-89', callback_data='РИ-89'))
@@ -159,7 +163,7 @@ def group_keyboard(user_id):
         kb.row(Btn(text='РЦ-82', callback_data='РЦ-82'),
                Btn(text='РП-86', callback_data='РП-86'),
                Btn(text='МГ-189', callback_data='МГ-189'))
-    elif user_faculty == 'МРМ' and user_course == 3:
+    elif faculty == 'МРМ' and course == 3:
         kb.row(Btn(text='РИ-77', callback_data='РИ-77'),
                Btn(text='РИ-78', callback_data='РИ-78'),
                Btn(text='РА-75', callback_data='РА-75'))
@@ -170,7 +174,7 @@ def group_keyboard(user_id):
                Btn(text='РП-76', callback_data='РП-76'),
                Btn(text='РСК-711', callback_data='РСК-711'),
                Btn(text='РСК-712', callback_data='РСК-712'))
-    elif user_faculty == 'МРМ' and user_course == 4:
+    elif faculty == 'МРМ' and course == 4:
         kb.row(Btn(text='РИ-67', callback_data='РИ-67'),
                Btn(text='РИ-68', callback_data='РИ-68'),
                Btn(text='РЦ-62', callback_data='РЦ-62'))
@@ -180,7 +184,7 @@ def group_keyboard(user_id):
         kb.row(Btn(text='РТ-64', callback_data='РТ-64'),
                Btn(text='РП-66', callback_data='РП-66'),
                Btn(text='РСК-611', callback_data='РСК-611'))
-    elif user_faculty == 'ИВТ' and user_course == 1:
+    elif faculty == 'ИВТ' and course == 1:
         kb.row(Btn(text='ИП-913', callback_data='ИП-913'),
                Btn(text='ИВ-923', callback_data='ИВ-923'),
                Btn(text='ИВ-922', callback_data='ИВ-922'),
@@ -199,7 +203,7 @@ def group_keyboard(user_id):
                Btn(text='ИС-941', callback_data='ИС-941'))
         kb.row(Btn(text='МГ-192', callback_data='МГ-192'),
                Btn(text='МГ-191', callback_data='МГ-191'))
-    elif user_faculty == 'ИВТ' and user_course == 2:
+    elif faculty == 'ИВТ' and course == 2:
         kb.row(Btn(text='ИП-811', callback_data='ИП-811'),
                Btn(text='ИА-832', callback_data='ИА-832'),
                Btn(text='ИП-814', callback_data='ИП-814'),
@@ -218,7 +222,7 @@ def group_keyboard(user_id):
                Btn(text='ИВ-822', callback_data='ИВ-822'))
         kb.row(Btn(text='ИС-841', callback_data='ИС-841'),
                Btn(text='ИИ-862', callback_data='ИИ-862'))
-    elif user_faculty == 'ИВТ' and user_course == 3:
+    elif faculty == 'ИВТ' and course == 3:
         kb.row(Btn(text='ИП-713', callback_data='ИП-713'),
                Btn(text='ИП-715', callback_data='ИП-715'),
                Btn(text='ИВ-722', callback_data='ИВ-722'))
@@ -234,7 +238,7 @@ def group_keyboard(user_id):
         kb.row(Btn(text='ИП-712', callback_data='ИП-712'),
                Btn(text='ИА-732', callback_data='ИА-732'),
                Btn(text='ИБ-751', callback_data='ИБ-751'))
-    elif user_faculty == 'ИВТ' and user_course == 4:
+    elif faculty == 'ИВТ' and course == 4:
         kb.row(Btn(text='ИИ-661', callback_data='ИИ-661'),
                Btn(text='ИП-612', callback_data='ИП-612'),
                Btn(text='ИП-615', callback_data='ИП-615'))
@@ -247,20 +251,20 @@ def group_keyboard(user_id):
         kb.row(Btn(text='ИП-611', callback_data='ИП-611'),
                Btn(text='ИМ-671', callback_data='ИМ-671'),
                Btn(text='ИА-631', callback_data='ИА-631'))
-    elif user_faculty == 'ГФ' and user_course == 1:
+    elif faculty == 'ГФ' and course == 1:
         kb.row(Btn(text='ГР-91', callback_data='ГР-91'),
                Btn(text='ГР-92', callback_data='ГР-92'))
-    elif user_faculty == 'ГФ' and user_course == 2:
+    elif faculty == 'ГФ' and course == 2:
         kb.row(Btn(text='ГР-81', callback_data='ГР-81'),
                Btn(text='ГР-82', callback_data='ГР-82'))
-    elif user_faculty == 'ГФ' and user_course == 3:
+    elif faculty == 'ГФ' and course == 3:
         kb.row(Btn(text='ГР-71', callback_data='ГР-71'),
                Btn(text='ГР-72', callback_data='ГР-72'))
-    elif user_faculty == 'ГФ' and user_course == 4:
+    elif faculty == 'ГФ' and course == 4:
         kb.row(Btn(text='ГР-61', callback_data='ГР-61'),
                Btn(text='ГР-62', callback_data='ГР-62'),
                Btn(text='ГР-63', callback_data='ГР-63'))
-    elif user_faculty == 'АЭС' and user_course == 1:
+    elif faculty == 'АЭС' and course == 1:
         kb.row(Btn(text='АВ-912', callback_data='АВ-912'),
                Btn(text='АБ-95', callback_data='АБ-95'),
                Btn(text='АБ-98', callback_data='АБ-98'),
@@ -271,7 +275,7 @@ def group_keyboard(user_id):
                Btn(text='АП-92', callback_data='АП-92'))
         kb.row(Btn(text='АВ-911', callback_data='АВ-911'),
                Btn(text='АБ-99', callback_data='АБ-99'))
-    elif user_faculty == 'АЭС' and user_course == 2:
+    elif faculty == 'АЭС' and course == 2:
         kb.row(Btn(text='АБ-87', callback_data='АБ-87'),
                Btn(text='АБ-86', callback_data='АБ-86'),
                Btn(text='АБ-88', callback_data='АБ-88'))
@@ -281,7 +285,7 @@ def group_keyboard(user_id):
         kb.row(Btn(text='АП-84', callback_data='АП-84'),
                Btn(text='АБ-85', callback_data='АБ-85'),
                Btn(text='АП-83', callback_data='АП-83'))
-    elif user_faculty == 'АЭС' and user_course == 3:
+    elif faculty == 'АЭС' and course == 3:
         kb.row(Btn(text='АП-72', callback_data='АП-72'),
                Btn(text='АВ-712', callback_data='АВ-712'),
                Btn(text='АБ-751', callback_data='АБ-751'))
@@ -290,7 +294,7 @@ def group_keyboard(user_id):
                Btn(text='АБ-75', callback_data='АБ-75'))
         kb.row(Btn(text='АВ-711', callback_data='АВ-711'),
                Btn(text='АБ-74', callback_data='АБ-74'))
-    elif user_faculty == 'АЭС' and user_course == 4:
+    elif faculty == 'АЭС' and course == 4:
         kb.row(Btn(text='А-63', callback_data='А-63'),
                Btn(text='А-64', callback_data='А-64'),
                Btn(text='АБ-65', callback_data='АБ-65'),
@@ -298,7 +302,7 @@ def group_keyboard(user_id):
         kb.row(Btn(text='АБ-67', callback_data='АБ-67'),
                Btn(text='АП-62', callback_data='АП-62'),
                Btn(text='АВ-611', callback_data='АВ-611'))
-    elif user_faculty == 'АЭС' and user_course == 5:
+    elif faculty == 'АЭС' and course == 5:
         kb.row(Btn(text='АБ-55', callback_data='АБ-55'),
                Btn(text='АБ-56', callback_data='АБ-56'),
                Btn(text='АВ-51', callback_data='АВ-51'))
@@ -314,7 +318,7 @@ def course_keyboard(user_id):
     -5 курс
     -6 курс
     """
-    user_faculty = db.get_info(user_id=user_id, column='user_faculty')
+    faculty = db.get_info(user_id=user_id, column='faculty')
     kb = InlineKeyboardMarkup()
 
     first_course = Btn(text='1 курс', callback_data='set_1_course')
@@ -324,9 +328,27 @@ def course_keyboard(user_id):
 
     kb.row(first_course, second_course)
     kb.row(third_course, fourth_course)
-    if user_faculty == 'АЭС':
+    if faculty == 'АЭС':
         fifth_course = Btn(text='5 курс', callback_data='set_5_course')
         kb.row(fifth_course)
+    return kb
+
+
+def week_menu():
+    kb = InlineKeyboardMarkup()
+    monday = Btn(text="Пн", callback_data='get_monday_schedule')
+    tuesday = Btn(text="Вт", callback_data='get_tuesday_schedule')
+    wednesday = Btn(text="Ср", callback_data='get_wednesday_schedule')
+    thursday = Btn(text="Чт", callback_data='get_thursday_schedule')
+    friday = Btn(text="Пт", callback_data='get_friday_schedule')
+    saturday = Btn(text="Сб", callback_data='get_saturday_schedule')
+    all_week = Btn(text="Вся неделя", callback_data='get_all_week')
+    get_back = Btn(text="Вернуться", callback_data='get_schedule')
+
+    kb.row(monday, tuesday, wednesday, thursday, friday, saturday)
+    kb.add(all_week)
+    kb.add(get_back)
+
     return kb
 
 
@@ -360,17 +382,25 @@ def formatting(user_id):
     is_show_teacher = db.get_info(user_id=user_id, column='show_teacher')
     is_show_audience = db.get_info(user_id=user_id, column='show_audience')
     if is_show_teacher is True and is_show_audience is True:
-        kb.add(Btn(text='Показывать преподавателя (✔)', callback_data='change_show_teacher_status_off'))
-        kb.add(Btn(text='Показывать аудиторию (✔)', callback_data='change_show_audience_status_off'))
+        kb.add(Btn(text='Показывать преподавателя (✔)',
+                   callback_data='change_show_teacher_status_off'))
+        kb.add(Btn(text='Показывать аудиторию (✔)',
+                   callback_data='change_show_audience_status_off'))
     elif is_show_teacher is False and is_show_audience is True:
-        kb.add(Btn(text='Показывать преподавателя (❌)', callback_data='change_show_teacher_status_on'))
-        kb.add(Btn(text='Показывать аудиторию (✔)', callback_data='change_show_audience_status_off'))
+        kb.add(Btn(text='Показывать преподавателя (❌)',
+                   callback_data='change_show_teacher_status_on'))
+        kb.add(Btn(text='Показывать аудиторию (✔)',
+                   callback_data='change_show_audience_status_off'))
     elif is_show_teacher is True and is_show_audience is False:
-        kb.add(Btn(text='Показывать преподавателя (✔)', callback_data='change_show_teacher_status_off'))
-        kb.add(Btn(text='Показывать аудиторию (❌)', callback_data='change_show_audience_status_on'))
+        kb.add(Btn(text='Показывать преподавателя (✔)',
+                   callback_data='change_show_teacher_status_off'))
+        kb.add(Btn(text='Показывать аудиторию (❌)',
+                   callback_data='change_show_audience_status_on'))
     else:
-        kb.add(Btn(text='Показывать преподавателя (❌)', callback_data='change_show_teacher_status_on'))
-        kb.add(Btn(text='Показывать аудиторию (❌)', callback_data='change_show_audience_status_on'))
+        kb.add(Btn(text='Показывать преподавателя (❌)',
+                   callback_data='change_show_teacher_status_on'))
+        kb.add(Btn(text='Показывать аудиторию (❌)',
+                   callback_data='change_show_audience_status_on'))
     kb.row(Btn(text='⚙  В параметры', callback_data='open_parameters_menu'),
            Btn(text='🏠 В меню', callback_data='to_main_menu'))
     return kb
@@ -387,8 +417,9 @@ def admin_menu():
 
     statistic = Btn(text='📈 Статистика', callback_data='get_bot_statistic')
     edit_db = Btn(text='📙 Управление БД', callback_data='get_edit_db')
-    execute_query = Btn(text='💡 Выполнить запрос', callback_data='execute_query')
-    to_settings = Btn(text='Вернуться', callback_data='to_settings')
+    execute_query = Btn(text='💡 Выполнить запрос',
+                        callback_data='execute_query')
+    to_settings = Btn(text='Вернуться', callback_data='open_parameters_menu')
 
     kb.add(statistic, edit_db)
     kb.add(execute_query)
@@ -403,9 +434,12 @@ def admin_statistic_menu():
     """
     kb = InlineKeyboardMarkup()
 
-    users_count = Btn(text='📈 Кол-во юзеров', callback_data='adminmenu_users_count')
-    schedule_updates = Btn(text='🆕 Обновления расписания', callback_data='adminmenu_schedule_updates')
-    return_to_adminmenu = Btn(text='Вернуться в админку', callback_data='generate_admin_keyboard')
+    users_count = Btn(text='📈 Кол-во юзеров',
+                      callback_data='adminmenu_users_count')
+    schedule_updates = Btn(text='🆕 Обновления расписания',
+                           callback_data='adminmenu_schedule_updates')
+    return_to_adminmenu = Btn(
+        text='Вернуться в админку', callback_data='generate_admin_keyboard')
     kb.add(users_count, schedule_updates)
     kb.add(return_to_adminmenu)
     return kb
@@ -418,9 +452,10 @@ def admin_user_count_keyboard():
     """
     kb = InlineKeyboardMarkup()
     reload = Btn(text='Обновить', callback_data='adminmenu_users_count')
-    return_to_adminmenu = Btn(text='Вернуться в админку', callback_data='generate_admin_keyboard')
+    return_to_stats = Btn(
+        text='Вернуться в админку', callback_data='get_bot_statistic')
     kb.add(reload)
-    kb.add(return_to_adminmenu)
+    kb.add(return_to_stats)
     return kb
 
 
@@ -432,9 +467,12 @@ def admin_edit_db_menu():
     """
     kb = InlineKeyboardMarkup()
 
-    delete_string = Btn(text='Удалить запись', callback_data='adminmenu_delete_string')
-    truncate_table = Btn(text='Очистить базу', callback_data='adminmenu_truncate_table')
-    return_to_adminmenu = Btn(text='Вернуться в админку', callback_data='generate_admin_keyboard')
+    delete_string = Btn(text='Удалить запись',
+                        callback_data='adminmenu_delete_string')
+    truncate_table = Btn(text='Очистить базу',
+                         callback_data='adminmenu_truncate_table')
+    return_to_adminmenu = Btn(
+        text='Вернуться в админку', callback_data='generate_admin_keyboard')
     kb.add(delete_string, truncate_table)
     kb.add(return_to_adminmenu)
     return kb
@@ -451,9 +489,10 @@ def delete_me_menu():
     return kb
 
 
-def es_open_user(user_id):
+async def es_open_user(user_id):
+    user = await bot.get_chat(chat_id=user_id)
+    print(user)
     kb = InlineKeyboardMarkup()
-    show_profile = Btn(text="Открыть профиль", url=f"tg://user?id={user_id}")
+    show_profile = Btn(text="Открыть профиль", url=f"https://t.me/{user.username}")
     kb.add(show_profile)
     return kb
-
