@@ -119,7 +119,7 @@ async def get_certain_day(group, day):
         selected_day = get_weekday(5)
 
     answer_message = await get_schedule(user_group=group,
-                                  day=selected_day)
+                                        day=selected_day)
     return format_message(answer_message)
 
 
@@ -127,15 +127,12 @@ async def get_today_schedule(user_group):
     """Получить сегодняшнее расписание."""
     today = get_weekday(datetime.weekday(
         datetime.now(pytz.timezone('Asia/Bangkok'))))
-    try:
-        if today[1] != "Воскресенье":
-            answer_message = await get_schedule(user_group=user_group,
-                                          day=today)
-        else:
-            answer_message = "*Воскресенье*\n\nСегодня выходной! Отдыхай 😊"
-        return format_message(answer_message)
-    except Exception as e:
-        raise(e)
+    if today[1] != "Воскресенье":
+        answer_message = await get_schedule(user_group=user_group,
+                                            day=today)
+    else:
+        answer_message = "*Воскресенье*\n\nСегодня выходной! Отдыхай 😊"
+    return format_message(answer_message)
 
 
 async def get_tomorrow_schedule(user_group) -> str:
@@ -146,7 +143,7 @@ async def get_tomorrow_schedule(user_group) -> str:
         tomorrow = get_weekday(datetime.weekday(datetime.now().astimezone(pytz.timezone('Asia/Bangkok'))) + 1)
     if tomorrow[1] != "Воскресенье":
         answer_message = await get_schedule(user_group=user_group,
-                                      day=tomorrow)
+                                            day=tomorrow)
     else:
         answer_message = "*Воскресенье*\n\nЗавтра выходной! Отдыхай 😊"
     return answer_message
@@ -159,7 +156,7 @@ async def get_schedule(user_group, day) -> str:
     table = await get_xls_for_user(user_group)
 
     letter = await get_letter(user_group=user_group,
-                        table=table)
+                              table=table)
 
     answer_message += "*" + day[1] + "*\n\n"
     for i in range(0, len(day[0])):
@@ -171,7 +168,7 @@ async def get_schedule(user_group, day) -> str:
             if type(table["B%s" % (int(table[point].row))]).__name__ == "MergedCell":
                 lesson_time = table["B%s" % (int(table[point].row) - 1)].value
             info = await get_lesson_by_time(lesson_time=lesson_time, cell=table[point].value)
-            answer_message += info[0]
+            answer_message += info[0] + "\n"
             num_of_lessons += 1
     if len(info):
         answer_message += "\n*{0}* пар(ы). Последняя пара кончается в *{1}*.".format(num_of_lessons,
@@ -183,7 +180,6 @@ async def get_schedule(user_group, day) -> str:
 
 
 async def get_letter(user_group, table):
-    table = table
     letter = ''
     for cellobj in table["C4":"Z4"]:
         for cell in cellobj:
@@ -277,12 +273,11 @@ def get_weekday(current_date):
             day_of_week = "Воскресенье"
     for obj in rows, day_of_week:
         tday.append(obj)
-    print(tday)
     return tday
 
 
 def get_week_from_date(date_object):
-    """Получае номер учебной недели."""
+    """Получаем номер учебной недели."""
     date_ordinal = date_object.toordinal()
     year = date_object.year
     week = ((date_ordinal - _week1_start_ordinal(year)) // 7) + 1

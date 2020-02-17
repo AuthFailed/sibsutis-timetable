@@ -1,4 +1,4 @@
-"""Работа с Telegram API."""
+"""Работа с Telegram API"""
 
 import logging
 from aiogram import executor, types
@@ -67,8 +67,13 @@ def get_time_to_lesson():
     today1855 = now.replace(hour=18, minute=55)
 
     message = (
-        "⏰ Время пар:\n\n*1 пара*     __8:00 - 9:30__\n*2 пара*     __9:50 - 11:25__\n*3 пара*     __11:40 - "
-        "13:15__\n*4 пара*     __13:45 - 15:20__\n*5 пара*     __15:35 - 17:10__\n*6 пара*     __17:25 - 18:55__ "
+        "⏰ Время пар:\n\n"
+        "*1 пара*     __8:00 - 9:30__\n"
+        "*2 пара*     __9:50 - 11:25__\n"
+        "*3 пара*     __11:40 - 13:15__\n"
+        "*4 пара*     __13:45 - 15:20__\n"
+        "*5 пара*     __15:35 - 17:10__\n"
+        "*6 пара*     __17:25 - 18:55__ "
     )
     if now < today8:
         message += "\n\n*Пары еще не начались*"
@@ -126,7 +131,7 @@ async def start_message(msg: types.Message):
         if db.user_exists(user_id=msg.chat.id):
             await msg.answer(
                 text="❗ Вы *уже зарегистрированы* в системе!\n"
-                     "Чтобы получить доступ к меню, используйте команду */menu*"
+                "Чтобы получить доступ к меню, используйте команду */menu*"
             )
 
         else:
@@ -138,7 +143,7 @@ async def start_message(msg: types.Message):
     else:
         await msg.answer(
             text=f"[{msg.from_user.first_name}](tg://user?id={msg.from_user.id}),"
-                 f" бот работает только в *личных сообщениях*."
+            f" бот работает только в *личных сообщениях*."
         )
 
 
@@ -153,7 +158,7 @@ async def send_message_main_menu(msg: Message):
     else:
         await msg.answer(
             text=f"[{msg.from_user.first_name}](tg://user?id={msg.from_user.id}),"
-                 f" бот работает только в *личных сообщениях*."
+            f" бот работает только в *личных сообщениях*."
         )
 
 
@@ -176,41 +181,96 @@ async def i_am_admin(msg: Message):
     else:
         await msg.answer(
             text=f"[{msg.from_user.first_name}](tg://user?id={msg.from_user.id}),"
-                 f" бот работает только в *личных сообщениях*.",
+            f" бот работает только в *личных сообщениях*.",
             parse_mode="Markdown",
         )
 
 
-@dp.message_handler(commands=["ping", "пинг"])
-async def ping(msg):
-    if filter_chat_is_private(msg):
-        await msg.answer(text="Понг")
-    else:
-        await msg.answer(
-            text=f"[{msg.from_user.first_name}](tg://user?id={msg.from_user.id}),"
-                 f" бот работает только в *личных сообщениях*."
-        )
+@dp.message_handler(content_types=["text"])
+async def processor_messages(msg: Message):
+    user_id = msg.chat.id
 
-
-@dp.message_handler(commands=["server"])
-async def send_server(msg: Message):
-    if filter_chat_is_private(msg):
-        if is_admin(msg.from_user.id):
-            try:
-                # по этому пути на сервере лежит скрипт сбора информации по статусу сервера
-                call(["/root/code/sibsutis-timetable/status.sh"])
-                # читает файл с результатами выполнения скрипта
-                status = open("/root/code/sibsutis-timetable/status.txt", "r+").read()
-                await msg.answer(text=status)
-            except Exception as e:
-                error_handler.logger.exception(str(e))
+    if filter_chat_is_private(msg=msg):
+        if db.user_exists(user_id=user_id)["exists"]:
+            if msg.text == "Учёба":
                 await msg.answer(
-                    text="Ошибка при получении статуса сервера. Подробности в журнале."
+                    text="Меню расписания", reply_markup=kb.get_schedule_by_day(),
                 )
+
+            elif msg.text == "Время пар":
+                await msg.answer(
+                    text=get_time_to_lesson(), reply_markup=kb.lesson_time()
+                )
+
+            elif msg.text == "Доп. Информация":
+                await msg.answer(text="Дополнительная информация")
+
+            elif msg.text == "Настройки":
+                await msg.answer(
+                    text="Параметры:",
+                    reply_markup=kb.make_settings_keyboard_for_user(user_id),
+                )
+
+            elif msg.text == "Сегодня":
+                await msg.answer("Получаю расписание...")
+                await bot.send_chat_action(chat_id=user_id, action="typing")
+                user_group = db.get_person(user_id=user_id)["group"]
+                await msg.answer(
+                    text=await xls_handler.get_today_schedule(user_group=user_group)
+                )
+
+            elif msg.text == "Завтра":
+                await msg.answer("Получаю расписание...")
+                await bot.send_chat_action(chat_id=user_id, action="typing")
+                user_group = db.get_person(user_id=user_id)["group"]
+                await msg.answer(
+                    text=await xls_handler.get_tomorrow_schedule(user_group=user_group)
+                )
+
+            elif msg.text == "Неделя":
+                await msg.answer(
+                    text="Выберите день недели:", reply_markup=kb.week_menu()
+                )
+
+            elif msg.text == "◀️":
+                await msg.answer(text="Главное меню", reply_markup=kb.main_menu())
+
+            elif msg.text == "🚪":
+                await msg.answer(
+                    text="Поиск и расписание аудиторий находится в разработке..."
+                )
+
+            elif msg.text == "👴":
+                await msg.answer(
+                    text="Поиск и расписание преподавателей в разработке..."
+                )
+
+            elif msg.text == "❓":
+                await msg.answer(
+                    text="""*Меню расписания - Помощь*
+
+_Сегодня_  →  расписание на сегодня
+_Завтра_  →  расписание на завтра
+_Неделя_  →  расписание на всю неделю или отдельный день
+
+🚪  →  поиск и расписание аудитории
+👴  →  поиск и расписание преподавателя
+
+*P.S.* Для расширенной справки нажмите на соответствующую иконку под сообщением""",
+                    reply_markup=kb.schedule_menu_help(),
+                )
+
+            elif msg.text == "":
+                pass
+        else:
+            await msg.answer(
+                "Для использования команд вы должны быть *зарегистрированы*!\n"
+                "Используйте команду /start чтобы зарегистрироваться."
+            )
     else:
         await msg.answer(
             text=f"[{msg.from_user.first_name}](tg://user?id={msg.from_user.id}),"
-                 f" бот работает только в *личных сообщениях*."
+            f" бот работает только в *личных сообщениях*."()
         )
 
 
@@ -230,6 +290,18 @@ async def handle_callbacks(_call: CallbackQuery):
         )
         await _call.answer()
 
+    elif _call.data == "audience_help":
+        await _call.answer(
+            text="🚪 Аудитории\n\nПоиск аудитории по номеру или фрагменту и вывод её расписания, с учётом корпуса и четности недели",
+            show_alert=True,
+        )
+
+    elif _call.data == "teacher_help":
+        await _call.answer(
+            text="👴 Преподаватели\n\nПоиск преподавателя по фамилии или фрагменту фамилии (из любой части слова) и вывод его расписания",
+            show_alert=True,
+        )
+
     elif _call.data == "open_parameters_menu":
         await _call.message.edit_text(
             text="*Параметры:*",
@@ -238,7 +310,7 @@ async def handle_callbacks(_call: CallbackQuery):
         await _call.answer()
 
     elif _call.data == "personal_settings":
-        db_answer = db.get_person(user_id=_call.from_user.id)
+        db_answer = db.get_person(user_id=_chat_id)
         faculty = db_answer["faculty"]
         course = db_answer["course"]
         group = db_answer["group"]
@@ -330,32 +402,6 @@ async def handle_callbacks(_call: CallbackQuery):
         await _call.answer(text="Курс выбран.")
         await get_group(_call.message)
 
-    elif _call.data == "edit_format_settings":
-        await _call.message.edit_text(
-            text="*Вид расписания:*", reply_markup=kb.formatting(chat_id)
-        )
-        await _call.answer()
-
-    elif _call.data == "change_show_teacher_status_off":
-        db.change_show_teacher_status(user_id=chat_id, status=False)
-        await _call.message.edit_reply_markup(reply_markup=kb.formatting(chat_id))
-        await _call.answer()
-
-    elif _call.data == "change_show_teacher_status_on":
-        db.change_show_teacher_status(user_id=chat_id, status=True)
-        await _call.message.edit_reply_markup(reply_markup=kb.formatting(chat_id))
-        await _call.answer()
-
-    elif _call.data == "change_show_audience_status_on":
-        db.change_show_audience_status(user_id=chat_id, status=True)
-        await _call.message.edit_reply_markup(reply_markup=kb.formatting(chat_id))
-        await _call.answer()
-
-    elif _call.data == "change_show_audience_status_off":
-        db.change_show_audience_status(user_id=chat_id, status=False)
-        await _call.message.edit_reply_markup(reply_markup=kb.formatting(chat_id))
-        await _call.answer()
-
     elif _call.data == "delete_me":
         await _call.message.edit_text(
             text="Вы уверены? *Аккаунт восстановлению не подлежит!*",
@@ -369,7 +415,7 @@ async def handle_callbacks(_call: CallbackQuery):
                 db.delete_person(chat_id)
                 await _call.message.edit_text(
                     text="Аккаунт был *удален!*\nЧтобы заново зарегистрироваться используйте "
-                         "команду /start."
+                    "команду /start."
                 )
                 await event_handler.deleted_user(msg=_call)
             except Exception as e:
@@ -416,130 +462,105 @@ async def handle_callbacks(_call: CallbackQuery):
             error_handler.add_error_to_log(user=username, error=e)
         await _call.answer()
 
-    elif _call.data == "get_schedule":
-        await _call.message.edit_text(
-            text="*Выберите пункт:*", reply_markup=kb.get_schedule_by_day()
-        )
-        await _call.answer()
-
-    elif _call.data == "get_today_schedule":
-        db_answer = db.get_person(user_id=chat_id)
-        group = db_answer["group"]
-        try:
-            await bot.send_chat_action(chat_id, action="typing")
-            await _call.answer(text="Получаю расписание...")
-            answer_message = await xls_handler.get_today_schedule(user_group=group)
-            await _call.message.edit_text(
-                text=answer_message, reply_markup=kb.get_schedule_by_day()
-            )
-            await _call.answer()
-        except MessageNotModified:
-            await _call.answer(text="Вы видите расписание на сегодняшний день!")
-
-    elif _call.data == "get_tomorrow_schedule":
-        db_answer = db.get_person(user_id=_call.from_user.id)
-        group = db_answer["group"]
-        await bot.send_chat_action(chat_id, action="typing")
-        try:
-            await _call.answer(text="Получаю расписание...")
-            answer_message = await xls_handler.get_tomorrow_schedule(group)
-            await _call.message.edit_text(
-                text=answer_message, reply_markup=kb.get_schedule_by_day()
-            )
-            await _call.answer()
-        except MessageNotModified:
-            await _call.answer(text="Вы видите расписание на завтрашний день!")
-
-    elif _call.data == "get_week_schedule":
-        await _call.message.edit_text(
-            text="Расписание на неделю:\n", reply_markup=kb.week_menu()
-        )
-        await _call.answer()
-
-    elif _call.data == "get_all_week":
-        await _call.message.edit_text(
-            text="Полное расписание на всю неделю находится в разработке!",
-            reply_markup=kb.get_schedule_by_day(),
-        )
-        
     elif _call.data == "get_monday_schedule":
-        group = db.get_person(user_id=_call.from_user.id)['group']
+        group = db.get_person(user_id=chat_id)["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
-            answer_message = await xls_handler.get_certain_day(group=group, day=_call.data)
-            await _call.message.edit_text(text=answer_message,
-                                          reply_markup=kb.week_menu())
+            answer_message = await xls_handler.get_certain_day(
+                group=group, day=_call.data
+            )
+            await _call.message.edit_text(
+                text=answer_message, reply_markup=kb.week_menu()
+            )
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
 
     elif _call.data == "get_tuesday_schedule":
-        group = db.get_person(user_id=_call.from_user.id)['group']
+        group = db.get_person(user_id=chat_id)["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
-            answer_message = await xls_handler.get_certain_day(group=group, day=_call.data)
-            await _call.message.edit_text(text=answer_message,
-                                          reply_markup=kb.week_menu())
+            answer_message = await xls_handler.get_certain_day(
+                group=group, day=_call.data
+            )
+            await _call.message.edit_text(
+                text=answer_message, reply_markup=kb.week_menu()
+            )
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
 
     elif _call.data == "get_wednesday_schedule":
-        group = db.get_person(user_id=_call.from_user.id)['group']
+        group = db.get_person(user_id=chat_id)["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
-            answer_message = await xls_handler.get_certain_day(group=group, day=_call.data)
-            await _call.message.edit_text(text=answer_message,
-                                          reply_markup=kb.week_menu())
+            answer_message = await xls_handler.get_certain_day(
+                group=group, day=_call.data
+            )
+            await _call.message.edit_text(
+                text=answer_message, reply_markup=kb.week_menu()
+            )
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
 
     elif _call.data == "get_thursday_schedule":
-        group = db.get_person(user_id=_call.from_user.id)['group']
+        group = db.get_person(user_id=chat_id)["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
-            answer_message = await xls_handler.get_certain_day(group=group, day=_call.data)
-            await _call.message.edit_text(text=answer_message,
-                                          reply_markup=kb.week_menu())
+            answer_message = await xls_handler.get_certain_day(
+                group=group, day=_call.data
+            )
+            await _call.message.edit_text(
+                text=answer_message, reply_markup=kb.week_menu()
+            )
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
 
     elif _call.data == "get_friday_schedule":
-        group = db.get_person(user_id=_call.from_user.id)['group']
+        group = db.get_person(user_id=chat_id)["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
-            answer_message = await xls_handler.get_certain_day(group=group, day=_call.data)
-            await _call.message.edit_text(text=answer_message,
-                                          reply_markup=kb.week_menu())
+            answer_message = await xls_handler.get_certain_day(
+                group=group, day=_call.data
+            )
+            await _call.message.edit_text(
+                text=answer_message, reply_markup=kb.week_menu()
+            )
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
 
     elif _call.data == "get_saturday_schedule":
-        group = db.get_person(user_id=_call.from_user.id)['group']
+        group = db.get_person(user_id=chat_id)["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
-            answer_message = await xls_handler.get_certain_day(group=group, day=_call.data)
-            await _call.message.edit_text(text=answer_message,
-                                          reply_markup=kb.week_menu())
+            answer_message = await xls_handler.get_certain_day(
+                group=group, day=_call.data
+            )
+            await _call.message.edit_text(
+                text=answer_message, reply_markup=kb.week_menu()
+            )
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
 
     elif _call.data == "adminmenu_users_count":
         arr = db.get_user_count()
-        print(arr)
         answer_message = (
-                "__Всего пользователей:__ *%s*\n\nМТС: *%s*\nМРМ: *%s*\nИВТ: *%s*\nАЭС: *%s*\nГФ: *%s*"
-                % (arr[0], arr[1], arr[2], arr[3], arr[4], arr[5])
+            f"__Всего пользователей:__ *{arr['Count_All_Users']}*\n\n"
+            f"МТС: *{arr['MST_Count']}*\n"
+            f"МРМ: *{arr['MRM_Count']}*\n"
+            f"ИВТ: *{arr['IVT_Count']}*\n"
+            f"АЭС: *{arr['AES_Count']}*\n"
+            f"ГФ: *{arr['GF_Count']}*"
         )
         try:
             await _call.message.edit_text(
@@ -550,9 +571,18 @@ async def handle_callbacks(_call: CallbackQuery):
             await _call.answer(text="Изменений нет!")
 
     elif _call.data == "adminmenu_schedule_updates":
-        query_result = db.execute("SELECT (file_name, version) from fs")
-        bot.send_message(chat_id, query_result)
-        await _call.answer()
+        arr = db.get_files_versions()
+        answer_message = (
+            f"__Всего групп:__ *{arr['Count_All_Groups']}*\n\n"
+            f"__Топ групп:__\n *{arr['Top_Groups']}*"
+        )
+        try:
+            await _call.message.edit_text(
+                text=answer_message, reply_markup=kb.admin_user_count_keyboard()
+            )
+            await _call.answer()
+        except MessageNotModified:
+            await _call.answer(text="Изменений нет!")
 
     elif _call.data == "get_bot_statistic":
         await _call.message.edit_text(
@@ -581,12 +611,12 @@ async def handle_callbacks(_call: CallbackQuery):
         if not group:
             db.change_group(chat_id, _call.data)
             db.change_registration_date(chat_id)
-            await _call.message.edit_text(text="*Меню:*", reply_markup=kb.main_menu())
+            await _call.message.answer(text="*Меню:*", reply_markup=kb.main_menu())
             await event_handler.new_user(msg=_call)
             await _call.answer(text="Группа выбрана.")
         else:
             db.change_group(chat_id, _call.data)
-            db_answer = db.get_person(user_id=_call.from_user.id)
+            db_answer = db.get_person(user_id=_chat_id)
             faculty = db_answer["faculty"]
             course = db_answer["course"]
             group = db_answer["group"]
