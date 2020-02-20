@@ -40,7 +40,7 @@
 <!-- О ПРОЕКТЕ -->
 ## О проекте
 
-[![Product Name Screen Shot][product-screenshot]](https://t.me/sibsutis-timetable)
+[![Product Name Screen Shot][product-screenshot]](https://t.me/sibsutis_bot)
 
 Бот для отслеживание актуального расписания университета СибГУТИ.
 
