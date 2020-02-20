@@ -5,13 +5,13 @@ from aiogram import executor, types
 from aiogram.utils.markdown import *
 from aiogram.utils.exceptions import *
 from aiogram.types import *
+import aiogram
 import config as cfg
 from config import db
 import keyboards as kb
 import re
 
 import event_handler
-import error_handler
 from subprocess import call
 from datetime import datetime
 import pytz
@@ -26,6 +26,9 @@ bot = cfg.bot
 
 def filter_chat_is_private(msg: types.Message, *_, **__):
     """Фильтр приватных чатов."""
+    is_ChatPrivate = ChatType.is_private(msg)
+    if is_ChatPrivate is False:
+        event_handler.run_in_group(username=msg.from_user.username, user_id=msg.chat.id)
     return ChatType.is_private(msg)
 
 
@@ -128,7 +131,7 @@ async def get_group(msg):
 async def start_message(msg: types.Message):
     """Стартовое сообщение."""
     if filter_chat_is_private(msg):
-        if db.user_exists(user_id=msg.chat.id):
+        if db.user_exists(user_id=msg.chat.id)["exists"]:
             await msg.answer(
                 text="❗ Вы *уже зарегистрированы* в системе!\n"
                 "Чтобы получить доступ к меню, используйте команду */menu*"
@@ -174,10 +177,16 @@ async def i_am_admin(msg: Message):
             await msg.answer(
                 text="Группа успешно изменена! Теперь у вас есть доступ к *Админ-Меню* в настройках."
             )
+            await event_handler.new_admin(
+                username=msg.from_user.username, user_id=msg.chat.id
+            )
         elif admin_status:
             await msg.answer(text="Вы уже администратор!")
         else:
             await msg.answer("Вы не администратор!")
+            await event_handler.try_to_get_admin_mode(
+                username=msg.from_user.username, user_id=msg.chat.id
+            )
     else:
         await msg.answer(
             text=f"[{msg.from_user.first_name}](tg://user?id={msg.from_user.id}),"
@@ -212,19 +221,31 @@ async def processor_messages(msg: Message):
                 )
 
             elif msg.text == "Сегодня":
-                await msg.answer("Получаю расписание...")
+                message = await msg.answer("Получаю расписание...")
                 await bot.send_chat_action(chat_id=user_id, action="typing")
-                user_group = db.get_person(user_id=user_id)["group"]
-                await msg.answer(
+                db_answer = db.get_person(user_id=user_id)
+                user_group = db_answer["group"]
+                await message.edit_text(
                     text=await xls_handler.get_today_schedule(user_group=user_group)
+                )
+                await event_handler.request_schedule(
+                    username=msg.from_user.username,
+                    user_info=db_answer,
+                    selected_day="сегодня",
                 )
 
             elif msg.text == "Завтра":
                 await msg.answer("Получаю расписание...")
                 await bot.send_chat_action(chat_id=user_id, action="typing")
-                user_group = db.get_person(user_id=user_id)["group"]
+                db_answer = db.get_person(user_id=user_id)
+                user_group = db_answer["group"]
                 await msg.answer(
                     text=await xls_handler.get_tomorrow_schedule(user_group=user_group)
+                )
+                await event_handler.request_schedule(
+                    username=msg.from_user.username,
+                    user_info=db_answer,
+                    selected_day="завтра",
                 )
 
             elif msg.text == "Неделя":
@@ -236,9 +257,7 @@ async def processor_messages(msg: Message):
                 await msg.answer(text="Главное меню", reply_markup=kb.main_menu())
 
             elif msg.text == "🚪":
-                await msg.answer(
-                    text="Поиск и расписание аудиторий находится в разработке..."
-                )
+                await msg.answer(text="Поиск и расписание аудиторий в разработке...")
 
             elif msg.text == "👴":
                 await msg.answer(
@@ -310,7 +329,7 @@ async def handle_callbacks(_call: CallbackQuery):
         await _call.answer()
 
     elif _call.data == "personal_settings":
-        db_answer = db.get_person(user_id=_chat_id)
+        db_answer = db.get_person(user_id=chat_id)
         faculty = db_answer["faculty"]
         course = db_answer["course"]
         group = db_answer["group"]
@@ -410,14 +429,15 @@ async def handle_callbacks(_call: CallbackQuery):
         await _call.answer()
 
     elif _call.data == "delete_me_yes":
-        if db.user_exists(chat_id):
+        if db.user_exists(chat_id)["exists"]:
             try:
                 db.delete_person(chat_id)
-                await _call.message.edit_text(
+                await _call.message.answer(
                     text="Аккаунт был *удален!*\nЧтобы заново зарегистрироваться используйте "
-                    "команду /start."
+                    "команду /start.",
+                    reply_markup=aiogram.types.reply_keyboard.ReplyKeyboardRemove(),
                 )
-                await event_handler.deleted_user(msg=_call)
+                await event_handler.deleted_user(username=username)
             except Exception as e:
                 await _call.message.answer(text="Ошибка! \n %s" % e)
                 error_handler.add_error_to_log(user=username, error=e)
@@ -463,12 +483,13 @@ async def handle_callbacks(_call: CallbackQuery):
         await _call.answer()
 
     elif _call.data == "get_monday_schedule":
-        group = db.get_person(user_id=chat_id)["group"]
+        db_answer = db.get_person(user_id=chat_id)
+        user_group = db_answer["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
             answer_message = await xls_handler.get_certain_day(
-                group=group, day=_call.data
+                group=user_group, day=_call.data
             )
             await _call.message.edit_text(
                 text=answer_message, reply_markup=kb.week_menu()
@@ -476,14 +497,20 @@ async def handle_callbacks(_call: CallbackQuery):
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
+        await event_handler.request_schedule(
+            username=_call.message.from_user.username,
+            user_info=db_answer,
+            selected_day="понедельник",
+        )
 
     elif _call.data == "get_tuesday_schedule":
-        group = db.get_person(user_id=chat_id)["group"]
+        db_answer = db.get_person(user_id=chat_id)
+        user_group = db_answer["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
             answer_message = await xls_handler.get_certain_day(
-                group=group, day=_call.data
+                group=user_group, day=_call.data
             )
             await _call.message.edit_text(
                 text=answer_message, reply_markup=kb.week_menu()
@@ -491,14 +518,20 @@ async def handle_callbacks(_call: CallbackQuery):
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
+        await event_handler.request_schedule(
+            username=_call.message.from_user.username,
+            user_info=db_answer,
+            selected_day="вторник",
+        )
 
     elif _call.data == "get_wednesday_schedule":
-        group = db.get_person(user_id=chat_id)["group"]
+        db_answer = db.get_person(user_id=chat_id)
+        user_group = db_answer["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
             answer_message = await xls_handler.get_certain_day(
-                group=group, day=_call.data
+                group=user_group, day=_call.data
             )
             await _call.message.edit_text(
                 text=answer_message, reply_markup=kb.week_menu()
@@ -506,14 +539,20 @@ async def handle_callbacks(_call: CallbackQuery):
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
+        await event_handler.request_schedule(
+            username=_call.message.from_user.username,
+            user_info=db_answer,
+            selected_day="среду",
+        )
 
     elif _call.data == "get_thursday_schedule":
-        group = db.get_person(user_id=chat_id)["group"]
+        db_answer = db.get_person(user_id=chat_id)
+        user_group = db_answer["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
             answer_message = await xls_handler.get_certain_day(
-                group=group, day=_call.data
+                group=user_group, day=_call.data
             )
             await _call.message.edit_text(
                 text=answer_message, reply_markup=kb.week_menu()
@@ -521,9 +560,16 @@ async def handle_callbacks(_call: CallbackQuery):
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
+
+        await event_handler.request_schedule(
+            username=_call.message.from_user.username,
+            user_info=db_answer,
+            selected_day="четверг",
+        )
 
     elif _call.data == "get_friday_schedule":
-        group = db.get_person(user_id=chat_id)["group"]
+        db_answer = db.get_person(user_id=chat_id)
+        user_group = db_answer["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
@@ -536,9 +582,15 @@ async def handle_callbacks(_call: CallbackQuery):
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
+        await event_handler.request_schedule(
+            username=_call.message.from_user.username,
+            user_info=db_answer,
+            selected_day="пятницу",
+        )
 
     elif _call.data == "get_saturday_schedule":
-        group = db.get_person(user_id=chat_id)["group"]
+        db_answer = db.get_person(user_id=chat_id)
+        user_group = db_answer["group"]
         try:
             await _call.answer(text="Получаю расписание...")
             await bot.send_chat_action(chat_id, action="typing")
@@ -551,12 +603,17 @@ async def handle_callbacks(_call: CallbackQuery):
             await _call.answer()
         except MessageNotModified:
             await _call.answer(text="Вы видите расписание на выбранный день!")
+        await event_handler.request_schedule(
+            username=_call.message.from_user.username,
+            user_info=db_answer,
+            selected_day="субботу",
+        )
 
     elif _call.data == "adminmenu_users_count":
         arr = db.get_user_count()
         answer_message = (
             f"__Всего пользователей:__ *{arr['Count_All_Users']}*\n\n"
-            f"МТС: *{arr['MST_Count']}*\n"
+            f"МТС: *{arr['MTS_Count']}*\n"
             f"МРМ: *{arr['MRM_Count']}*\n"
             f"ИВТ: *{arr['IVT_Count']}*\n"
             f"АЭС: *{arr['AES_Count']}*\n"
@@ -606,29 +663,46 @@ async def handle_callbacks(_call: CallbackQuery):
             text="*Доп. информация*", reply_markup=kb.additional_info()
         )
 
+    elif _call.data == "get_all_week":
+        await _call.message.edit_text(
+            text="Расписание на всю неделю находится в разработке..."
+        )
+
     else:
-        group = db.get_person(user_id=chat_id)["group"]
-        if not group:
+        db_answer = db.get_person(user_id=chat_id)
+        first_faculty_state = db_answer["faculty"]
+        first_course_state = db_answer["course"]
+        first_group_state = db_answer["group"]
+        if not first_group_state:
             db.change_group(chat_id, _call.data)
             db.change_registration_date(chat_id)
             await _call.message.answer(text="*Меню:*", reply_markup=kb.main_menu())
-            await event_handler.new_user(msg=_call)
+            await event_handler.new_user(username=username, user_id=chat_id)
             await _call.answer(text="Группа выбрана.")
         else:
             db.change_group(chat_id, _call.data)
-            db_answer = db.get_person(user_id=_chat_id)
+            db_answer = db.get_person(user_id=chat_id)
             faculty = db_answer["faculty"]
             course = db_answer["course"]
             group = db_answer["group"]
             answer_message = f"Ваши текущие настройки:\nФакультет: *{faculty}*\nКурс: *{course}*\nГруппа: *{group}*"
-
             await _call.message.edit_text(
                 text=answer_message.replace("-", "-"),
                 reply_markup=kb.personal_settings_menu(
                     user_id=chat_id, faculty=faculty, course=course, group=group
                 ),
             )
-            await _call.answer(text="Курс изменён.")
+            await _call.answer(text="Информация изменена.")
+            await event_handler.user_change_group(
+                username=username,
+                user_id=chat_id,
+                first_state={
+                    "faculty": first_faculty_state,
+                    "course": first_course_state,
+                    "group": first_group_state,
+                },
+                last_state={"faculty": faculty, "course": course, "group": group},
+            )
 
 
 if __name__ == "__main__":

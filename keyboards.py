@@ -70,7 +70,7 @@ def personal_settings_menu(user_id, faculty, course, group):
 def faculty_menu():
     """Меню выбора факультета."""
     kb = InlineKeyboardMarkup()
-
+    kb = Inli
     mts = InlBtn(text="МТС", callback_data="MTS_faculty")
     mrm = InlBtn(text="МРМ", callback_data="MRM_faculty")
     ivt = InlBtn(text="ИВТ", callback_data="IVT_faculty")
@@ -524,4 +524,3 @@ async def es_open_user(user_id):
     show_profile = InlBtn(text="Открыть профиль", url=f"https://t.me/{user.username}")
     kb.add(show_profile)
     return kb
-

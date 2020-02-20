@@ -87,20 +87,26 @@ async def get_xls_for_user(user_group) -> worksheet:
 async def update_schedule_files(group):
     """Обновление устаревших файлов расписания."""
     async with aiohttp.ClientSession() as session:
-        async with session.get(url=main_link,
-                               ssl=False) as response:
+        async with session.get(url=main_link, ssl=False) as response:
             assert response.status == 200
             soup = Soup(await response.text(), "html.parser")
-            text = soup.find("a", attrs={"class": "element-title",
-                                         "data-bx-title": "%s.xlsx" % group})
+            text = soup.find(
+                "a",
+                attrs={"class": "element-title", "data-bx-title": "%s.xlsx" % group},
+            )
             parsed_time = text["data-bx-datemodify"]
             download_link = f"https://sibsutis.ru{text['data-bx-download']}"
             result = db.execute(
-                query=f"SELECT update_time FROM fs WHERE file_name=\'{group}\'")
+                query=f"SELECT update_time FROM fs WHERE file_name='{group}'"
+            )["update_time"]
             if result != parsed_time:
                 db.update_time(file_name=group, update_time=parsed_time)
-                async with session.get(download_link, allow_redirects=True, ssl=False) as r:
-                    open(file=f'./schedule_files/{group}.xlsx', mode='wb').write(await r.content.read())
+                async with session.get(
+                    download_link, allow_redirects=True, ssl=False
+                ) as r:
+                    open(file=f"./schedule_files/{group}.xlsx", mode="wb").write(
+                        await r.content.read()
+                    )
 
 
 async def get_certain_day(group, day):
@@ -118,18 +124,15 @@ async def get_certain_day(group, day):
     else:
         selected_day = get_weekday(5)
 
-    answer_message = await get_schedule(user_group=group,
-                                        day=selected_day)
+    answer_message = await get_schedule(user_group=group, day=selected_day)
     return format_message(answer_message)
 
 
 async def get_today_schedule(user_group):
     """Получить сегодняшнее расписание."""
-    today = get_weekday(datetime.weekday(
-        datetime.now(pytz.timezone('Asia/Bangkok'))))
+    today = get_weekday(datetime.weekday(datetime.now(pytz.timezone("Asia/Bangkok"))))
     if today[1] != "Воскресенье":
-        answer_message = await get_schedule(user_group=user_group,
-                                            day=today)
+        answer_message = await get_schedule(user_group=user_group, day=today)
     else:
         answer_message = "*Воскресенье*\n\nСегодня выходной! Отдыхай 😊"
     return format_message(answer_message)
@@ -137,26 +140,30 @@ async def get_today_schedule(user_group):
 
 async def get_tomorrow_schedule(user_group) -> str:
     """Получить завтрашнее расписание."""
-    if datetime.weekday(datetime.now().astimezone(pytz.timezone('Asia/Bangkok'))) + 1 == 7:
+    if (
+        datetime.weekday(datetime.now().astimezone(pytz.timezone("Asia/Bangkok"))) + 1
+        == 7
+    ):
         tomorrow = get_weekday(0)
     else:
-        tomorrow = get_weekday(datetime.weekday(datetime.now().astimezone(pytz.timezone('Asia/Bangkok'))) + 1)
+        tomorrow = get_weekday(
+            datetime.weekday(datetime.now().astimezone(pytz.timezone("Asia/Bangkok")))
+            + 1
+        )
     if tomorrow[1] != "Воскресенье":
-        answer_message = await get_schedule(user_group=user_group,
-                                            day=tomorrow)
+        answer_message = await get_schedule(user_group=user_group, day=tomorrow)
     else:
         answer_message = "*Воскресенье*\n\nЗавтра выходной! Отдыхай 😊"
     return answer_message
 
 
 async def get_schedule(user_group, day) -> str:
-    answer_message = ''
+    answer_message = ""
     num_of_lessons = 0
 
     table = await get_xls_for_user(user_group)
 
-    letter = await get_letter(user_group=user_group,
-                              table=table)
+    letter = await get_letter(user_group=user_group, table=table)
 
     answer_message += "*" + day[1] + "*\n\n"
     for i in range(0, len(day[0])):
@@ -167,20 +174,22 @@ async def get_schedule(user_group, day) -> str:
             lesson_time = table["B%s" % (int(table[point].row))].value
             if type(table["B%s" % (int(table[point].row))]).__name__ == "MergedCell":
                 lesson_time = table["B%s" % (int(table[point].row) - 1)].value
-            info = await get_lesson_by_time(lesson_time=lesson_time, cell=table[point].value)
+            info = await get_lesson_by_time(
+                lesson_time=lesson_time, cell=table[point].value
+            )
             answer_message += info[0] + "\n"
             num_of_lessons += 1
     if len(info):
-        answer_message += "\n*{0}* пар(ы). Последняя пара кончается в *{1}*.".format(num_of_lessons,
-                                                                                     info[1][11:-3]
-                                                                                     )
+        answer_message += "\n*{0}* пар(ы). Последняя пара кончается в *{1}*.".format(
+            num_of_lessons, info[1][11:-3]
+        )
     else:
         answer_message += "\n\nВыходной! Отдыхай 😊"
     return answer_message
 
 
 async def get_letter(user_group, table):
-    letter = ''
+    letter = ""
     for cellobj in table["C4":"Z4"]:
         for cell in cellobj:
             if user_group == cell.value:
@@ -216,11 +225,15 @@ async def get_lesson_by_time(lesson_time, cell):
 
 def format_message(text):
     """Форматируем сообщение перед отправкой."""
-    text = text.replace("(Лекционные занятия)", "`(Лекция)`") \
-        .replace("(Лабораторные работы)", "`(Лабораторная)`") \
-        .replace("(Практические занятия)", "`(Практика)`") \
-        .replace("(Занятия по ин.язу)", "`(Занятия по ин.язу)`") \
-        .replace("(Занятия по физической культуре)", "`(Занятия по физической культуре)`")
+    text = (
+        text.replace("(Лекционные занятия)", "`(Лекция)`")
+        .replace("(Лабораторные работы)", "`(Лабораторная)`")
+        .replace("(Практические занятия)", "`(Практика)`")
+        .replace("(Занятия по ин.язу)", "`(Занятия по ин.язу)`")
+        .replace(
+            "(Занятия по физической культуре)", "`(Занятия по физической культуре)`"
+        )
+    )
     return text
 
 
@@ -281,7 +294,7 @@ def get_week_from_date(date_object):
     date_ordinal = date_object.toordinal()
     year = date_object.year
     week = ((date_ordinal - _week1_start_ordinal(year)) // 7) + 1
-    if week >= 52 and date_ordinal > + _week1_start_ordinal(year + 1):
+    if week >= 52 and date_ordinal > +_week1_start_ordinal(year + 1):
         year += 1
         week = 1
     return week - 34
